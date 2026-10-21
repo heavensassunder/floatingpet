@@ -1,6 +1,6 @@
 package com.slime;
 import android.app.Service;
-import android.content.BroadcastReceiver; import android.content.ClipData; import android.content.ClipboardManager; import android.content.Context; import android.content.Intent; import android.content.IntentFilter; import android.content.SharedPreferences;
+import android.content.BroadcastReceiver; import android.content.Context; import android.content.Intent; import android.content.IntentFilter; import android.content.SharedPreferences;
 import android.graphics.PixelFormat;
 import android.hardware.Sensor; import android.hardware.SensorEvent; import android.hardware.SensorEventListener; import android.hardware.SensorManager;
 import android.os.BatteryManager; import android.os.Handler; import android.os.IBinder; import android.os.PowerManager;
@@ -16,12 +16,12 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
  static final int CHAT_H=360;
  WindowManager wm; SlimeView slimeView; ChatView chatView; WindowManager.LayoutParams p1,p2;
  float dx,dy;
- long lastTap=0,lastTouch=0,lastPoke=0,lastTalk=0,lastGreet=0,lastClipNudge=0,lastShake=0,lastShakeReact=0,eventMoodUntil=0;
+ long lastTap=0,lastTouch=0,lastPoke=0,lastTalk=0,lastGreet=0,lastShake=0,lastShakeReact=0,eventMoodUntil=0;
  int shakeCount=0,pokeCount=0;
  String[] moods={"Happy!","Sleepy","Mad","Love","Hungry","Cry","Wow","Wink","Dead"};
  MemoryManager mem; ActionExecutor executor; TextToSpeech tts; boolean ttsOn=false; Notifs notifs;
  Handler h=new Handler(); Random rnd=new Random(); SharedPreferences sp; Needs needs;
- SensorManager sm; Sensor accel; boolean sensing=false; Wander wander; BroadcastReceiver rx; ClipboardManager clipMgr;
+ SensorManager sm; Sensor accel; boolean sensing=false; Wander wander; BroadcastReceiver rx; Clipboard clipboard;
 
  Runnable lifeTick=new Runnable(){ public void run(){ try{ life(); }catch(Exception e){ L.w("MainService",e); } h.postDelayed(this,30000); }};
  SensorEventListener shakeL=new SensorEventListener(){
@@ -36,8 +36,6 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
   }
   public void onAccuracyChanged(Sensor s,int a){}
  };
- ClipboardManager.OnPrimaryClipChangedListener clipL=new ClipboardManager.OnPrimaryClipChangedListener(){ public void onPrimaryClipChanged(){ onClipChanged(); }};
-
  @Override public void onCreate(){
   super.onCreate(); sp=getSharedPreferences("slime",MODE_PRIVATE);
   OpenRouterClient.prefs=sp; OpenRouterClient.model=sp.getString("model",OpenRouterClient.MODEL); mem=new MemoryManager(this); brain=new Brain(this); Modes.load(this); Pouch.load(this); Evo.init(this); executor=new ActionExecutor(this); tts=new TextToSpeech(this,this); needs=new Needs(sp);
@@ -108,7 +106,7 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
   try{ accel=sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER); }catch(Exception e){ L.w("MainService",e); }
   if(screenOn()) startSensor();
   setupReceivers();
-  try{ clipMgr=(ClipboardManager)getSystemService(CLIPBOARD_SERVICE); clipMgr.addPrimaryClipChangedListener(clipL); }catch(Exception e){ L.w("MainService",e); }
+  clipboard=new Clipboard(this); clipboard.attach();
   h.postDelayed(lifeTick,30000); wander.start();
   if(!as) h.postDelayed(new Runnable(){ public void run(){ slimeView.say("I'm awake!"); slimeView.bounceAnim(); }},1200);
  }
@@ -259,30 +257,7 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
  // ---------- notifications ----------
  public void onNotif(String pkg,String title,String text){ notifs.onNotif(pkg,title,text); }
 
- // ---------- clipboard ----------
- void onClipChanged(){
-  long now=System.currentTimeMillis();
-  if(now-lastClipNudge<60000L||!canTalk()) return;
-  lastClipNudge=now; slimeView.say("copied something? type 'clip' and I'll help"); slimeView.bounceAnim();
- }
- boolean isClipCmd(String low){ return low.equals("clip")||low.startsWith("clip ")||low.endsWith(" clip")||low.contains("clipboard")||low.contains(" clip "); }
- String readClip(){
-  try{
-   if(clipMgr==null||!clipMgr.hasPrimaryClip()) return "";
-   ClipData d=clipMgr.getPrimaryClip(); if(d==null||d.getItemCount()==0) return "";
-   CharSequence t=d.getItemAt(0).coerceToText(this); return t==null?"":t.toString().trim();
-  }catch(Exception e){ return ""; }
- }
- void clipTask(String original,String low){
-  String clip=readClip();
-  if(clip.isEmpty()){ local("can't see your clipboard. copy something, open my chat, then type clip",false); return; }
-  if(clip.length()>1500) clip=clip.substring(0,1500);
-  String task="Explain this copied text simply and briefly.";
-  if(low.contains("summar")) task="Summarize this copied text in 2-3 short sentences.";
-  else if(low.contains("translat")) task="Translate this copied text. If it is not English, translate it to English. If it is English, translate it to Swahili.";
-  else if(low.contains("repl")) task="Write one short, natural reply I could send to this message.";
-  askTask(original,task+"\n\nCOPIED TEXT:\n"+clip);
- }
+ // ---------- AI task requests ----------
  void askTask(final String original,String user){
   String key=sp.getString("key","");
   if(key.isEmpty()){ local("add API key first bestie",false); return; }
@@ -326,7 +301,7 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
   if(extra!=null&&extra.handle(t,low)) return;
   if(Modes.handle(this,t,low)||Pouch.handle(this,t,low)||Evo.handle(this,low)||(brain!=null&&brain.handle(t,low))) return;
   if(vibe!=null&&vibe.handle(t,low)) return;
-  if(isClipCmd(low)){ clipTask(t,low); return; }
+  if(clipboard.isCmd(low)){ clipboard.task(t,low); return; }
   if(low.contains("catch me up")||low.contains("what did i miss")||low.equals("pings")||low.equals("notifs")||low.equals("notifications")){ notifs.catchUp(t); return; }
   if(brain!=null) brain.observe(t); Evo.count(this,low);
   String cmd=null, arg="";
@@ -391,7 +366,7 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
   try{ if(wander!=null) wander.destroy(); }catch(Exception e){ L.w("MainService",e); }
   stopSensor();
   try{ if(rx!=null) unregisterReceiver(rx); }catch(Exception e){ L.w("MainService",e); }
-  try{ if(clipMgr!=null) clipMgr.removePrimaryClipChangedListener(clipL); }catch(Exception e){ L.w("MainService",e); }
+  try{ if(clipboard!=null) clipboard.detach(); }catch(Exception e){ L.w("MainService",e); }
   try{ if(tts!=null) tts.shutdown(); }catch(Exception e){ L.w("MainService",e); }
   try{ wm.removeView(slimeView); }catch(Exception e){ L.w("MainService",e); }
   try{ wm.removeView(chatView); }catch(Exception e){ L.w("MainService",e); }
