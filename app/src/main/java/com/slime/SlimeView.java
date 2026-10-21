@@ -1,13 +1,11 @@
 package com.slime;
 import android.animation.ValueAnimator; import android.content.Context; import android.graphics.*; import android.os.Handler; import android.os.SystemClock; import android.view.View; import android.view.ViewGroup; import android.view.WindowManager;
-import java.util.ArrayList; import java.util.Random;
+import java.util.ArrayList;
 public class SlimeView extends View {
  static final float S=0.75f;
- public int mood=0; String bubble=""; float breathe=0f, squash=0f, walk=0f;
- String state="idle";
+ public int mood=0; String bubble=""; float breathe=0f;
  Paint body=new Paint(Paint.ANTI_ALIAS_FLAG), dark=new Paint(Paint.ANTI_ALIAS_FLAG), shine=new Paint(Paint.ANTI_ALIAS_FLAG), white=new Paint(Paint.ANTI_ALIAS_FLAG), black=new Paint(Paint.ANTI_ALIAS_FLAG), blush=new Paint(Paint.ANTI_ALIAS_FLAG), line=new Paint(Paint.ANTI_ALIAS_FLAG), fill=new Paint(Paint.ANTI_ALIAS_FLAG), tear=new Paint(Paint.ANTI_ALIAS_FLAG), shadow=new Paint(Paint.ANTI_ALIAS_FLAG), bub=new Paint(Paint.ANTI_ALIAS_FLAG), edge=new Paint(Paint.ANTI_ALIAS_FLAG), tp=new Paint(Paint.ANTI_ALIAS_FLAG), heartP=new Paint(Paint.ANTI_ALIAS_FLAG), zzz=new Paint(Paint.ANTI_ALIAS_FLAG), limb=new Paint(Paint.ANTI_ALIAS_FLAG), limbFill=new Paint(Paint.ANTI_ALIAS_FLAG);
- RectF r=new RectF(); Path path=new Path(); Handler h=new Handler(); Runnable clearBubble; ValueAnimator idle; Random rnd=new Random();
- ArrayList<float[]> hearts=new ArrayList<float[]>();
+ RectF r=new RectF(); Path path=new Path(); Handler h=new Handler(); Runnable clearBubble; ValueAnimator idle;
  float lastX=Float.NaN, lastY=0f; long runUntil=0; int face=1; int[] loc=new int[2];
  public SlimeView(Context c){ super(c);
   shine.setColor(Color.WHITE); shine.setAlpha(110);
@@ -75,16 +73,11 @@ public class SlimeView extends View {
    if(run){
     float ph=phase+(s<0?(float)Math.PI:0f);
     hx=sx+s*4f+face*(float)Math.sin(ph)*8f; hy=cy+14f-(float)Math.cos(ph)*6f;
-   } else if(state.equals("celebrate")){
-    hx=cx+s*(rx+10f); hy=cy-16f+(float)Math.sin(SystemClock.uptimeMillis()/90f+s)*6f;
    }
    cv.drawLine(sx,sy,hx,hy,limb); cv.drawCircle(hx,hy,6.5f,limbFill);
   }
  }
  void drawEyes(Canvas cv,float ex1,float ex2,float ey){
-  if(state.equals("think")){ eye(cv,ex1,ey,9f,4f); cv.drawLine(ex2-10,ey-2,ex2+10,ey-2,line); return; }
-  if(state.equals("eat")){ closed(cv,ex1,ey); closed(cv,ex2,ey); return; }
-  if(state.equals("celebrate")){ eye(cv,ex1,ey,10f,5f); eye(cv,ex2,ey,10f,5f); return; }
   switch(mood){
    case 1: closed(cv,ex1,ey); closed(cv,ex2,ey); break;
    case 2: eye(cv,ex1,ey,9f,4.5f); eye(cv,ex2,ey,9f,4.5f); cv.drawLine(ex1-12,ey-16,ex1+8,ey-9,line); cv.drawLine(ex2-8,ey-9,ex2+12,ey-16,line); break;
@@ -97,9 +90,7 @@ public class SlimeView extends View {
   }
  }
  void drawMouth(Canvas cv,float cx,float my){
-  if(Mouth.talking(state,mood)){ Mouth.draw(this,cv,cx,my); return; }
-  if(state.equals("think")){ cv.drawLine(cx-8,my+4,cx+8,my+4,line); return; }
-  if(state.equals("eat")){ float open=6f+Math.abs(walk)*8f; r.set(cx-9,my-open,cx+9,my+open); cv.drawOval(r,fill); return; }
+  if(Mouth.talking(mood)){ Mouth.draw(this,cv,cx,my); return; }
   switch(mood){
    case 1: r.set(cx-4,my-2,cx+4,my+8); cv.drawOval(r,fill); break;
    case 2: case 5: r.set(cx-10,my+2,cx+10,my+16); cv.drawArc(r,200f,140f,false,line); break;
@@ -131,7 +122,7 @@ public class SlimeView extends View {
   float ground=hh-6f;
   float bob=run?Math.abs((float)Math.sin(phase))*5f:0f;
   float cx=w/2f, cy=hh-72f-bob;
-  float sq=breathe*4f+squash*10f+Pouch.chub();
+  float sq=breathe*4f+Pouch.chub();
   float rx=50f+sq, ry=46f-sq;
   int bc=bodyColor(); body.setColor(bc); dark.setColor(darker(bc)); limb.setColor(darker(bc)); limbFill.setColor(darker(bc));
   r.set(cx-40+bob,ground-9,cx+40-bob,ground+1); cv.drawOval(r,shadow);
@@ -145,22 +136,11 @@ public class SlimeView extends View {
   drawEyes(cv,cx-17,cx+17,cy-6);
   drawMouth(cv,cx,cy+17);
   cv.restore();
-  if(mood==0||mood==3||mood==7||state.equals("celebrate")){ r.set(cx-36,cy+8,cx-24,cy+16); cv.drawOval(r,blush); r.set(cx+24,cy+8,cx+36,cy+16); cv.drawOval(r,blush); }
+  if(mood==0||mood==3||mood==7){ r.set(cx-36,cy+8,cx-24,cy+16); cv.drawOval(r,blush); r.set(cx+24,cy+8,cx+36,cy+16); cv.drawOval(r,blush); }
   arms(cv,cx,cy,rx,run,phase); Evo.draw(this,cv,cx,cy,rx,ry,run);
   cv.restore();
-  if(state.equals("sleep")||mood==1){ tp.setTextSize(14f+breathe*6f); cv.drawText("z",cx+40,cy-38,tp); zzz.setTextSize(10f+breathe*4f); cv.drawText("z",cx+52,cy-52,zzz); }
+  if(mood==1){ tp.setTextSize(14f+breathe*6f); cv.drawText("z",cx+40,cy-38,tp); zzz.setTextSize(10f+breathe*4f); cv.drawText("z",cx+52,cy-52,zzz); }
   Mouth.notes(this,cv,cx,cy);
-  if(state.equals("think")){ tp.setTextSize(18f); cv.drawText("...",cx+38,cy-40,tp); }
-  if(state.equals("eat")){ tp.setTextSize(16f); cv.drawText("nom",cx,cy-52,tp); }
-  if(state.equals("celebrate")){
-   for(int i=hearts.size()-1;i>=0;i--){
-    float[] p=hearts.get(i); p[1]-=2.2f; p[2]+=0.04f;
-    heartP.setAlpha((int)Math.max(0,255*(1f-p[2])));
-    heart(cv,p[0],p[1],7f,heartP);
-    if(p[2]>=1f) hearts.remove(i);
-   }
-   heartP.setAlpha(255);
-  }
   if(bubble!=null&&!bubble.isEmpty()){
    tp.setTextSize(22f);
    ArrayList<String> ls=wrap(bubble,w-36f);
@@ -172,28 +152,6 @@ public class SlimeView extends View {
    }
   }
   cv.restore();
- }
- public void setState(String s){
-  if(s==null) s="idle";
-  state=s;
-  if(state.equals("eat")){
-   ValueAnimator v=ValueAnimator.ofFloat(0f,1f); v.setDuration(900); v.setRepeatCount(2); v.setRepeatMode(ValueAnimator.REVERSE);
-   v.addUpdateListener(new ValueAnimator.AnimatorUpdateListener(){ public void onAnimationUpdate(ValueAnimator a){ walk=((Float)a.getAnimatedValue()).floatValue(); invalidate(); }});
-   v.addListener(new android.animation.AnimatorListenerAdapter(){ public void onAnimationEnd(android.animation.Animator a){ if(state.equals("eat")) state="idle"; walk=0f; invalidate(); }});
-   v.start();
-  } else if(state.equals("celebrate")){
-   hearts.clear();
-   for(int i=0;i<7;i++) hearts.add(new float[]{40f+rnd.nextInt(120),90f+rnd.nextInt(40),rnd.nextFloat()*0.4f});
-   ValueAnimator v=ValueAnimator.ofFloat(0f,1f); v.setDuration(1200);
-   v.addUpdateListener(new ValueAnimator.AnimatorUpdateListener(){ public void onAnimationUpdate(ValueAnimator a){ squash=((Float)a.getAnimatedValue()).floatValue(); invalidate(); }});
-   v.addListener(new android.animation.AnimatorListenerAdapter(){ public void onAnimationEnd(android.animation.Animator a){ if(state.equals("celebrate")) state="idle"; squash=0f; hearts.clear(); invalidate(); }});
-   v.start();
-  } else if(state.equals("think")){
-   h.postDelayed(new Runnable(){ public void run(){ if(state.equals("think")){ state="idle"; invalidate(); } }},2600);
-  } else {
-   startIdle();
-  }
-  invalidate();
  }
  public void setMood(int m){ mood=m; invalidate(); }
  public void say(String s){
@@ -207,8 +165,4 @@ public class SlimeView extends View {
  public void bounceAnim(){
   animate().scaleX(1.2f).scaleY(0.8f).setDuration(120).withEndAction(new Runnable(){ public void run(){ animate().scaleX(1f).scaleY(1f).setDuration(120).start(); }}).start();
  }
- public void thinkAnim(){ setState("think"); }
- public void eatAnim(){ setState("eat"); }
- public void celebrateAnim(){ setState("celebrate"); }
- public void sleepAnim(){ setState("sleep"); }
 }

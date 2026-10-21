@@ -14,8 +14,7 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
  public static MainService instance; Phone phone; Guard guard; Extra extra; Brain brain; Vibe vibe;
  // window is 3/4 of the old size (was 260x190)
  static final int SW=195, SH=143;
- // how far the empty window area may hang off-screen so the BODY can touch every edge
- static final int EDGE_X=58, TOP_PAD=58, BOT_PAD=8, CHAT_H=360;
+ static final int CHAT_H=360;
  WindowManager wm; SlimeView slimeView; ChatView chatView; WindowManager.LayoutParams p1,p2;
  float dx,dy;
  long lastTap=0,lastTouch=0,lastPoke=0,lastTalk=0,lastGreet=0,lastClipNudge=0,lastNotifBubble=0,lastShake=0,lastShakeReact=0,eventMoodUntil=0;
@@ -43,7 +42,7 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
 
  @Override public void onCreate(){
   super.onCreate(); sp=getSharedPreferences("slime",MODE_PRIVATE);
-  OpenRouterClient.prefs=sp; OpenRouterClient.prefs=sp; OpenRouterClient.prefs=sp; OpenRouterClient.model=sp.getString("model",OpenRouterClient.MODEL); mem=new MemoryManager(this); brain=new Brain(this); Modes.load(this); Pouch.load(this); Evo.init(this); executor=new ActionExecutor(this); tts=new TextToSpeech(this,this); needs=new Needs(sp);
+  OpenRouterClient.prefs=sp; OpenRouterClient.model=sp.getString("model",OpenRouterClient.MODEL); mem=new MemoryManager(this); brain=new Brain(this); Modes.load(this); Pouch.load(this); Evo.init(this); executor=new ActionExecutor(this); tts=new TextToSpeech(this,this); needs=new Needs(sp);
   wm=(WindowManager)getSystemService(WINDOW_SERVICE);
   slimeView=new SlimeView(this);
   p1=new WindowManager.LayoutParams(SW,SH,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
@@ -364,17 +363,10 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
   OpenRouterClient.ask(key,sys,user,new OpenRouterClient.Callback(){ public void onResult(String reply){ onReply(original,reply); }});
  }
 
- // ---------- memory ----------
- String stamp(){ return "["+new java.text.SimpleDateFormat("d MMM",Locale.US).format(new java.util.Date())+"] "; }
- void learn(String low,String t){
-  String[] keys={"my name is","call me ","i like ","i love ","i live ","i study","i'm studying","i work","i am a ","i'm a ","my birthday","my exam","my test","my project","i hate ","i want to","remember ","i'm learning","my favourite","my favorite"};
-  for(String k:keys){ if(low.contains(k)){ mem.saveLongFact(stamp()+t); return; } }
- }
-
  // ---------- chat commands ----------
  boolean localCommand(String low){
   long now=System.currentTimeMillis();
-  if(low.equals("help")||low.equals("commands")){ Vibe.showHelp(this); if(true) return true; local("feed, play, status, shh, talk to me, talk more, talk less, say something, wake up, clip, catch me up, pings off, pings on, what do you remember, forget all, clear history, open X, tap X, type X, scroll up/down",false); return true; }
+  if(low.equals("help")||low.equals("commands")){ Vibe.showHelp(this); return true; }
   if(low.equals("status")||low.equals("stats")){ local(Evo.line(this)+" | food "+(int)needs.food+" | energy "+(int)needs.energy+" | joy "+(int)needs.joy+" | battery "+batteryLevel()+"%",false); return true; }
   if(low.equals("feed")||low.equals("feed slime")||low.equals("snack")){
    if(needs.food>90f){ local("I'm stuffed, no more!"); } else { needs.feed(25f); moodEvent(3,6000); local("nom nom nom... thanks!"); }
@@ -390,7 +382,7 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
   if(low.equals("say something")||low.equals("talk")){ maybeTalk(true); return true; }
   if(low.equals("wake up")){ sp.edit().putLong("wakeUntil",now+5*3600000L).apply(); moodEvent(0,10000); local("I'm up! awake for the next 5 hours."); return true; }
   if(low.equals("pings off")||low.equals("pings on")){ sp.edit().putBoolean("pings",low.endsWith("on")).apply(); local(low.endsWith("on")?"ok, I'll tell you about new pings":"ok, no more ping bubbles",false); return true; }
-  if(low.contains("what do you remember")||low.contains("what do you know about me")){ brain.showSummary(); if(true) return true; String m=mem.getLongContext(); local(m.isEmpty()?"nothing yet. tell me about you, like 'my name is ...'":"here's what I remember:\n"+m,false); return true; }
+  if(low.contains("what do you remember")||low.contains("what do you know about me")){ brain.showSummary(); return true; }
   if(low.equals("forget all")||low.equals("forget everything")){ if(brain!=null) brain.clearAll(); try{ mem.longFile.delete(); }catch(Exception e){} local("done, I forgot everything I knew about you."); return true; }
   if(low.equals("clear history")){ try{ mem.chatFile.delete(); mem.notifFile.delete(); chatView.messagesContainer.removeAllViews(); }catch(Exception e){} unseenNotifs=0; local("history cleared"); return true; }
   return false;
