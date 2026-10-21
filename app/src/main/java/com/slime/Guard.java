@@ -5,7 +5,7 @@ public class Guard implements Runnable {
  final MainService s; final int[] loc=new int[2]; int lx=Integer.MIN_VALUE, ly=Integer.MIN_VALUE;
  Guard(MainService s){ this.s=s; }
  public void run(){
-  try{ check(); }catch(Exception e){}
+  try{ check(); }catch(Exception e){ L.w("Guard",e); }
   if(MainService.instance==s) s.h.postDelayed(this,800);
  }
  void check(){

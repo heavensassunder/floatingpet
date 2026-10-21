@@ -6,11 +6,11 @@ public class Pouch {
  static String[] cand=null;
  static void load(MainService s){
   items.clear();
-  try{ JSONArray a=new JSONArray(s.sp.getString("pouch","[]")); for(int i=0;i<a.length();i++) items.add(a.getString(i)); }catch(Exception e){}
+  try{ JSONArray a=new JSONArray(s.sp.getString("pouch","[]")); for(int i=0;i<a.length();i++) items.add(a.getString(i)); }catch(Exception e){ L.w("Pouch",e); }
  }
  static void save(MainService s){
-  try{ JSONArray a=new JSONArray(); for(String x:items) a.put(x); s.sp.edit().putString("pouch",a.toString()).apply(); }catch(Exception e){}
-  try{ s.slimeView.invalidate(); }catch(Exception e){}
+  try{ JSONArray a=new JSONArray(); for(String x:items) a.put(x); s.sp.edit().putString("pouch",a.toString()).apply(); }catch(Exception e){ L.w("Pouch",e); }
+  try{ s.slimeView.invalidate(); }catch(Exception e){ L.w("Pouch",e); }
  }
  static int count(){ return items.size(); }
  static int chub(){ return Math.min(6,items.size()*2); }

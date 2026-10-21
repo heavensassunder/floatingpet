@@ -35,16 +35,16 @@ public class Walls {
    ll[0]=new ViewTreeObserver.OnGlobalLayoutListener(){ public void onGlobalLayout(){
     if(got[0]||v.getWidth()<=0||v.getHeight()<=0) return;
     got[0]=true;
-    try{ v.getViewTreeObserver().removeOnGlobalLayoutListener(ll[0]); }catch(Exception e){}
+    try{ v.getViewTreeObserver().removeOnGlobalLayoutListener(ll[0]); }catch(Exception e){ L.w("Walls",e); }
     int[] l=new int[2]; v.getLocationOnScreen(l);
     cache=new Rect(l[0],l[1],l[0]+v.getWidth(),l[1]+v.getHeight());
-    s.h.post(new Runnable(){ public void run(){ try{ s.wm.removeView(v); }catch(Exception e){} done(s); }});
+    s.h.post(new Runnable(){ public void run(){ try{ s.wm.removeView(v); }catch(Exception e){ L.w("Walls",e); } done(s); }});
    }};
    v.getViewTreeObserver().addOnGlobalLayoutListener(ll[0]);
    s.wm.addView(v,lp);
    s.h.postDelayed(new Runnable(){ public void run(){
     if(got[0]) return; got[0]=true;
-    try{ s.wm.removeView(v); }catch(Exception e){}
+    try{ s.wm.removeView(v); }catch(Exception e){ L.w("Walls",e); }
     done(s);
    }},1500);
   }catch(Exception e){ done(s); }

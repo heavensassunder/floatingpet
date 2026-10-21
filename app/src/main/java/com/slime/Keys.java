@@ -55,7 +55,7 @@ public class Keys {
   }
   if(low.startsWith("key remove ")){
    ArrayList<String> ks=all(s.sp);
-   try{ int i=Integer.parseInt(low.substring(11).trim())-1; if(i>=0&&i<ks.size()){ ks.remove(i); setAll(s.sp,ks); s.local("removed it. "+ks.size()+" key"+(ks.size()==1?"":"s")+" left",false); return true; } }catch(Exception e){}
+   try{ int i=Integer.parseInt(low.substring(11).trim())-1; if(i>=0&&i<ks.size()){ ks.remove(i); setAll(s.sp,ks); s.local("removed it. "+ks.size()+" key"+(ks.size()==1?"":"s")+" left",false); return true; } }catch(Exception e){ L.w("Keys",e); }
    s.local("which one? say keys, then key remove N",false); return true;
   }
   if(low.equals("key next")||low.equals("next key")){

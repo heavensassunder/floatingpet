@@ -18,6 +18,6 @@ public class NotificationEyesService extends NotificationListenerService {
    for(String s:SECRET){ if(low.contains(s)) return; }
    new MemoryManager(this).saveNotif(title,text);
    MainService m=MainService.instance; if(m!=null) m.onNotif(pkg,title,text);
-  }catch(Exception e){}
+  }catch(Exception e){ L.w("NotificationEyesService",e); }
  }
 }

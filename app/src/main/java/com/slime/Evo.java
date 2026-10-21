@@ -37,7 +37,7 @@ public class Evo {
    refresh(s);
    if(level>oldLevel) s.react("level up! I'm a "+NAMES[level-1]+" now",3,6000);
    else if((glasses&&!og)||(cap&&!oc)||(phones&&!op)||(sparkle&&!os)) s.react("ooh, I got a new accessory!",7,5000);
-  }catch(Exception e){}
+  }catch(Exception e){ L.w("Evo",e); }
  }
  static String line(MainService s){
   int xp=s.sp.getInt("xp",0); refresh(s);

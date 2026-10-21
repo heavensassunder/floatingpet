@@ -15,7 +15,7 @@ public class OpenRouterClient {
  // the free plan allows about 50 requests a day for each account
  public static String budget(){ return used()+"/"+(50*keyCount()); }
  public static String currentKey(String fallback){
-  try{ if(prefs!=null){ ArrayList<String> ks=Keys.all(prefs); if(!ks.isEmpty()) return Keys.current(prefs,ks); } }catch(Exception e){}
+  try{ if(prefs!=null){ ArrayList<String> ks=Keys.all(prefs); if(!ks.isEmpty()) return Keys.current(prefs,ks); } }catch(Exception e){ L.w("OpenRouterClient",e); }
   return fallback==null?"":fallback;
  }
  static void countCall(String k){
@@ -25,7 +25,7 @@ public class OpenRouterClient {
    e.putInt("ai_"+day(),used()+1);
    if(k!=null&&k.length()>0) e.putInt("aik_"+Keys.hash(k)+"_"+day(),prefs.getInt("aik_"+Keys.hash(k)+"_"+day(),0)+1);
    e.apply();
-  }catch(Exception e){}
+  }catch(Exception e){ L.w("OpenRouterClient",e); }
  }
  public static void countCall(){ countCall(currentKey("")); }
  // the slime's own unprompted calls (random chat, peeks, humming) leave most of the day for you
@@ -118,14 +118,14 @@ public class OpenRouterClient {
  }
  public static void ask(String key,String system,String user,Callback cb){ run(key,system,user,cb); }
  public static void askAuto(String key,String system,String user,Callback cb){
-  try{ if(prefs!=null) prefs.edit().putInt("aiauto_"+day(),usedAuto()+1).apply(); }catch(Exception e){}
+  try{ if(prefs!=null) prefs.edit().putInt("aiauto_"+day(),usedAuto()+1).apply(); }catch(Exception e){ L.w("OpenRouterClient",e); }
   run(key,system,user,cb);
  }
  static void run(final String key,final String system,final String user,final Callback cb){
   new Thread(new Runnable(){ public void run(){
    String out;
    ArrayList<String> ks=new ArrayList<String>();
-   try{ if(prefs!=null) ks=Keys.all(prefs); }catch(Exception e){}
+   try{ if(prefs!=null) ks=Keys.all(prefs); }catch(Exception e){ L.w("OpenRouterClient",e); }
    if(ks.isEmpty()&&key!=null&&key.length()>0) ks.add(key);
    int tries=0;
    while(true){

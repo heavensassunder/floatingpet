@@ -44,19 +44,19 @@ public class ChatView extends LinearLayout {
   input.setOnEditorActionListener(new TextView.OnEditorActionListener(){ public boolean onEditorAction(TextView v,int a,KeyEvent e){ send.performClick(); return true; }});
   input.setOnClickListener(new View.OnClickListener(){ public void onClick(View v){ setKb(true); }});
   setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener(){ public WindowInsets onApplyWindowInsets(View v,WindowInsets in){
-   try{ if(kb&&System.currentTimeMillis()-kbAt>900&&in.getSystemWindowInsetBottom()<=150) setKb(false); }catch(Exception e){}
+   try{ if(kb&&System.currentTimeMillis()-kbAt>900&&in.getSystemWindowInsetBottom()<=150) setKb(false); }catch(Exception e){ L.w("ChatView",e); }
    return v.onApplyWindowInsets(in);
   }});
  }
  public void setKb(boolean open){
   if(kb==open) return;
   kb=open; kbAt=System.currentTimeMillis();
-  try{ scroll.getLayoutParams().height=open?150:240; scroll.requestLayout(); }catch(Exception e){}
+  try{ scroll.getLayoutParams().height=open?150:240; scroll.requestLayout(); }catch(Exception e){ L.w("ChatView",e); }
   if(onKeyboard!=null) onKeyboard.run();
  }
  public void hideKeyboard(){
-  try{ InputMethodManager imm=(InputMethodManager)getContext().getSystemService(Context.INPUT_METHOD_SERVICE); imm.hideSoftInputFromWindow(input.getWindowToken(),0); }catch(Exception e){}
-  try{ input.clearFocus(); }catch(Exception e){}
+  try{ InputMethodManager imm=(InputMethodManager)getContext().getSystemService(Context.INPUT_METHOD_SERVICE); imm.hideSoftInputFromWindow(input.getWindowToken(),0); }catch(Exception e){ L.w("ChatView",e); }
+  try{ input.clearFocus(); }catch(Exception e){ L.w("ChatView",e); }
   setKb(false);
  }
  Button mk(Context c,String label,String color,float ts,int ph,int pv){
@@ -70,7 +70,7 @@ public class ChatView extends LinearLayout {
 
  // ---------- copying ----------
  static void copyText(Context c,String t){
-  try{ ClipboardManager cm=(ClipboardManager)c.getSystemService(Context.CLIPBOARD_SERVICE); cm.setPrimaryClip(ClipData.newPlainText("slime",t)); Toast.makeText(c,"copied",Toast.LENGTH_SHORT).show(); }catch(Exception e){}
+  try{ ClipboardManager cm=(ClipboardManager)c.getSystemService(Context.CLIPBOARD_SERVICE); cm.setPrimaryClip(ClipData.newPlainText("slime",t)); Toast.makeText(c,"copied",Toast.LENGTH_SHORT).show(); }catch(Exception e){ L.w("ChatView",e); }
  }
  View.OnLongClickListener copier(final String t){ return new View.OnLongClickListener(){ public boolean onLongClick(View v){ copyText(getContext(),t); return true; }}; }
  public void copyLast(){ if(lastBot.isEmpty()) Toast.makeText(getContext(),"nothing to copy yet",Toast.LENGTH_SHORT).show(); else copyText(getContext(),lastBot); }
@@ -159,7 +159,7 @@ public class ChatView extends LinearLayout {
   View.OnClickListener t=new View.OnClickListener(){ public void onClick(View v){ open[0]=!open[0]; upd.run(); }};
   tog.setOnClickListener(t); title.setOnClickListener(t);
   copy.setOnClickListener(new View.OnClickListener(){ public void onClick(View v){
-   try{ ClipboardManager cm=(ClipboardManager)c.getSystemService(Context.CLIPBOARD_SERVICE); cm.setPrimaryClip(ClipData.newPlainText("slime",code)); Toast.makeText(c,"copied",Toast.LENGTH_SHORT).show(); }catch(Exception e){}
+   try{ ClipboardManager cm=(ClipboardManager)c.getSystemService(Context.CLIPBOARD_SERVICE); cm.setPrimaryClip(ClipData.newPlainText("slime",code)); Toast.makeText(c,"copied",Toast.LENGTH_SHORT).show(); }catch(Exception e){ L.w("ChatView",e); }
   }});
   card.addView(head); card.addView(hs);
   return card;
@@ -173,7 +173,7 @@ public class ChatView extends LinearLayout {
   return sb;
  }
  void paint(SpannableStringBuilder sb,String code,String re,String color){
-  try{ Matcher m=Pattern.compile(re).matcher(code); while(m.find()) sb.setSpan(new ForegroundColorSpan(Color.parseColor(color)),m.start(),m.end(),Spanned.SPAN_EXCLUSIVE_EXCLUSIVE); }catch(Exception e){}
+  try{ Matcher m=Pattern.compile(re).matcher(code); while(m.find()) sb.setSpan(new ForegroundColorSpan(Color.parseColor(color)),m.start(),m.end(),Spanned.SPAN_EXCLUSIVE_EXCLUSIVE); }catch(Exception e){ L.w("ChatView",e); }
  }
  Drawable createRound(int color,float r){ GradientDrawable d=new GradientDrawable(); d.setColor(color); d.setCornerRadius(r); return d; }
 }

@@ -28,20 +28,20 @@ public class Brain {
     e.ts=o.optLong("ts"); e.upd=o.optLong("upd"); e.imp=o.optInt("imp",2); e.n=o.optInt("n",1);
     if(e.t.length()>0) list.add(e);
    }
-  }catch(Exception e){}
+  }catch(Exception e){ L.w("Brain",e); }
  }
  void save(){
   try{
    JSONArray a=new JSONArray();
    for(E e:list){ JSONObject o=new JSONObject(); o.put("id",e.id); o.put("t",e.t); o.put("c",e.c); o.put("prev",e.prev); o.put("ts",e.ts); o.put("upd",e.upd); o.put("imp",e.imp); o.put("n",e.n); a.put(o); }
    FileOutputStream out=new FileOutputStream(f); out.write(a.toString().getBytes("UTF-8")); out.close();
-  }catch(Exception e){}
+  }catch(Exception e){ L.w("Brain",e); }
  }
  void importOld(){
   try{
    String old=s.mem.getLongContext();
    if(old!=null){ for(String line:old.split("\n")){ line=line.replaceFirst("^\\[[^\\]]{1,12}\\]\\s*",""); if(line.trim().length()>=6) add(line,"life",1,false); } }
-  }catch(Exception e){}
+  }catch(Exception e){ L.w("Brain",e); }
   s.sp.edit().putBoolean("brainImported",true).apply();
  }
  // ---------- helpers ----------
@@ -146,7 +146,7 @@ public class Brain {
      case 11: add("has a "+m.group(1).toLowerCase(Locale.US)+" named "+m.group(2),"people",2,false); break;
     }
    }
-  }catch(Exception e){}
+  }catch(Exception e){ L.w("Brain",e); }
  }
  // the AI can add memories for free by ending its reply with [[mem:fact | category]]
  public String fromTags(String reply){

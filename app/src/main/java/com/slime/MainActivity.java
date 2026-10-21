@@ -62,28 +62,28 @@ public class MainActivity extends Activity {
     Toast.makeText(this,n>0?"Added "+n+" key"+(n>1?"s":""):"That doesn't look like a key (or it is already saved)",Toast.LENGTH_SHORT).show();
     keyIn.setText("");
    }
-  }catch(Exception e){}
+  }catch(Exception e){ L.w("MainActivity",e); }
   refresh();
  }
  String tick(boolean ok){ return ok?"\u2713 ":"\u2717 "; }
  void refresh(){
   try{
    StringBuilder sb=new StringBuilder();
-   boolean ov=true; try{ ov=Settings.canDrawOverlays(this); }catch(Exception e){}
+   boolean ov=true; try{ ov=Settings.canDrawOverlays(this); }catch(Exception e){ L.w("MainActivity",e); }
    sb.append(tick(ov)).append("overlay permission\n");
    sb.append(tick(EyeService.instance!=null)).append("accessibility (my eyes)\n");
-   String nl=null; try{ nl=Settings.Secure.getString(getContentResolver(),"enabled_notification_listeners"); }catch(Exception e){}
+   String nl=null; try{ nl=Settings.Secure.getString(getContentResolver(),"enabled_notification_listeners"); }catch(Exception e){ L.w("MainActivity",e); }
    sb.append(tick(nl!=null&&nl.contains(getPackageName()))).append("notification access\n");
-   boolean bat=false; try{ bat=((PowerManager)getSystemService(POWER_SERVICE)).isIgnoringBatteryOptimizations(getPackageName()); }catch(Exception e){}
+   boolean bat=false; try{ bat=((PowerManager)getSystemService(POWER_SERVICE)).isIgnoringBatteryOptimizations(getPackageName()); }catch(Exception e){ L.w("MainActivity",e); }
    sb.append(tick(bat)).append("battery unrestricted\n");
    int nk=Keys.all(sp).size();
    sb.append(tick(nk>0)).append("OpenRouter key saved (").append(nk).append(")\n");
    sb.append(tick(MainService.instance!=null)).append("slime is running\n");
-   boolean term=false; try{ getPackageManager().getPackageInfo("com.termux",0); term=true; }catch(Exception e){}
+   boolean term=false; try{ getPackageManager().getPackageInfo("com.termux",0); term=true; }catch(Exception e){ L.w("MainActivity",e); }
    sb.append(tick(term)).append("Termux installed (only needed for phone control)");
    status.setText(sb.toString());
    rebuildKeys();
-  }catch(Exception e){}
+  }catch(Exception e){ L.w("MainActivity",e); }
  }
  void rebuildKeys(){
   keyList.removeAllViews();

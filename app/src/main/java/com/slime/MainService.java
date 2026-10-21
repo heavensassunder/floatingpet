@@ -24,8 +24,8 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
  Handler h=new Handler(); Random rnd=new Random(); SharedPreferences sp; Needs needs;
  SensorManager sm; Sensor accel; boolean sensing=false; ValueAnimator wander; BroadcastReceiver rx; ClipboardManager clipMgr;
 
- Runnable lifeTick=new Runnable(){ public void run(){ try{ life(); }catch(Exception e){} h.postDelayed(this,30000); }};
- Runnable wanderTick=new Runnable(){ public void run(){ try{ wanderStep(); }catch(Exception e){} h.postDelayed(this,6000+rnd.nextInt(9000)); }};
+ Runnable lifeTick=new Runnable(){ public void run(){ try{ life(); }catch(Exception e){ L.w("MainService",e); } h.postDelayed(this,30000); }};
+ Runnable wanderTick=new Runnable(){ public void run(){ try{ wanderStep(); }catch(Exception e){ L.w("MainService",e); } h.postDelayed(this,6000+rnd.nextInt(9000)); }};
  SensorEventListener shakeL=new SensorEventListener(){
   public void onSensorChanged(SensorEvent e){
    float x=e.values[0],y=e.values[1],z=e.values[2];
@@ -48,7 +48,7 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
   p1=new WindowManager.LayoutParams(SW,SH,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,PixelFormat.TRANSLUCENT);
   p1.gravity=Gravity.TOP|Gravity.START; p1.x=sp.getInt("x",100); p1.y=sp.getInt("y",400);
-  try{ if(android.os.Build.VERSION.SDK_INT>=28) p1.layoutInDisplayCutoutMode=(android.os.Build.VERSION.SDK_INT>=30)?WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS:WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES; }catch(Throwable th){}
+  try{ if(android.os.Build.VERSION.SDK_INT>=28) p1.layoutInDisplayCutoutMode=(android.os.Build.VERSION.SDK_INT>=30)?WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS:WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES; }catch(Throwable th){ L.w("MainService",th); }
   clampPos();
   chatView=new ChatView(this);
   p2=new WindowManager.LayoutParams(340,WindowManager.LayoutParams.WRAP_CONTENT,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
@@ -107,10 +107,10 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
   });
 
   sm=(SensorManager)getSystemService(SENSOR_SERVICE);
-  try{ accel=sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER); }catch(Exception e){}
+  try{ accel=sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER); }catch(Exception e){ L.w("MainService",e); }
   if(screenOn()) startSensor();
   setupReceivers();
-  try{ clipMgr=(ClipboardManager)getSystemService(CLIPBOARD_SERVICE); clipMgr.addPrimaryClipChangedListener(clipL); }catch(Exception e){}
+  try{ clipMgr=(ClipboardManager)getSystemService(CLIPBOARD_SERVICE); clipMgr.addPrimaryClipChangedListener(clipL); }catch(Exception e){ L.w("MainService",e); }
   h.postDelayed(lifeTick,30000); h.postDelayed(wanderTick,9000);
   if(!as) h.postDelayed(new Runnable(){ public void run(){ slimeView.say("I'm awake!"); slimeView.bounceAnim(); }},1200);
  }
@@ -144,20 +144,20 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
  // ---------- helpers ----------
  void updateViews(){
   placeChat();
-  try{ wm.updateViewLayout(slimeView,p1); }catch(Exception e){}
-  if(chatView.getVisibility()==View.VISIBLE){ try{ wm.updateViewLayout(chatView,p2); }catch(Exception e){} }
+  try{ wm.updateViewLayout(slimeView,p1); }catch(Exception e){ L.w("MainService",e); }
+  if(chatView.getVisibility()==View.VISIBLE){ try{ wm.updateViewLayout(chatView,p2); }catch(Exception e){ L.w("MainService",e); } }
  }
  void showChat(){ Phone.focusable(this); chatView.setVisibility(View.VISIBLE); updateViews(); }
  void addChat(String t,boolean user){
   chatView.addMessage(t,user);
-  try{ while(chatView.messagesContainer.getChildCount()>60) chatView.messagesContainer.removeViewAt(0); }catch(Exception e){}
+  try{ while(chatView.messagesContainer.getChildCount()>60) chatView.messagesContainer.removeViewAt(0); }catch(Exception e){ L.w("MainService",e); }
  }
  void local(String s){ local(s,true); }
  void local(String s,boolean bubble){ addChat("Slime: "+s,false); if(bubble){ slimeView.say(s); slimeView.bounceAnim(); } }
  void speak(String t){
   if(t==null) return; t=t.trim(); if(t.isEmpty()) return;
   slimeView.say(t); slimeView.bounceAnim(); addChat("Slime: "+t,false);
-  if(ttsOn){ try{ tts.speak(MathText.speakable(t),TextToSpeech.QUEUE_FLUSH,null,null); }catch(Exception e){} }
+  if(ttsOn){ try{ tts.speak(MathText.speakable(t),TextToSpeech.QUEUE_FLUSH,null,null); }catch(Exception e){ L.w("MainService",e); } }
  }
  void moodEvent(int m,long ms){ eventMoodUntil=System.currentTimeMillis()+ms; slimeView.setMood(m); }
  void react(String line,int m,long ms){ moodEvent(m,ms); slimeView.say(line); slimeView.bounceAnim(); }
@@ -281,10 +281,10 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
   IntentFilter f=new IntentFilter();
   f.addAction(Intent.ACTION_POWER_CONNECTED); f.addAction(Intent.ACTION_POWER_DISCONNECTED); f.addAction(Intent.ACTION_BATTERY_LOW);
   f.addAction(Intent.ACTION_HEADSET_PLUG); f.addAction(Intent.ACTION_USER_PRESENT); f.addAction(Intent.ACTION_SCREEN_ON); f.addAction(Intent.ACTION_SCREEN_OFF);
-  try{ registerReceiver(rx,f); }catch(Exception e){}
+  try{ registerReceiver(rx,f); }catch(Exception e){ L.w("MainService",e); }
  }
- void startSensor(){ try{ if(sensing||sm==null||accel==null) return; sm.registerListener(shakeL,accel,SensorManager.SENSOR_DELAY_UI); sensing=true; }catch(Exception e){} }
- void stopSensor(){ try{ if(sm!=null&&sensing) sm.unregisterListener(shakeL); }catch(Exception e){} sensing=false; }
+ void startSensor(){ try{ if(sensing||sm==null||accel==null) return; sm.registerListener(shakeL,accel,SensorManager.SENSOR_DELAY_UI); sensing=true; }catch(Exception e){ L.w("MainService",e); } }
+ void stopSensor(){ try{ if(sm!=null&&sensing) sm.unregisterListener(shakeL); }catch(Exception e){ L.w("MainService",e); } sensing=false; }
  void onShake(){
   long now=System.currentTimeMillis(); if(now-lastShakeReact<4000) return; lastShakeReact=now;
   needs.cheer(-2f); react(Lines.pick(Lines.SHAKE),8,3500);
@@ -316,7 +316,7 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
    lastNotifBubble=now;
    if(looksUrgent(title+" "+text)) react(title+" sounds urgent!",6,5000);
    else { slimeView.say("ping from "+title); slimeView.bounceAnim(); }
-  }catch(Exception e){}
+  }catch(Exception e){ L.w("MainService",e); }
  }
  String notifList(int n){
   try{
@@ -383,8 +383,8 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
   if(low.equals("wake up")){ sp.edit().putLong("wakeUntil",now+5*3600000L).apply(); moodEvent(0,10000); local("I'm up! awake for the next 5 hours."); return true; }
   if(low.equals("pings off")||low.equals("pings on")){ sp.edit().putBoolean("pings",low.endsWith("on")).apply(); local(low.endsWith("on")?"ok, I'll tell you about new pings":"ok, no more ping bubbles",false); return true; }
   if(low.contains("what do you remember")||low.contains("what do you know about me")){ brain.showSummary(); return true; }
-  if(low.equals("forget all")||low.equals("forget everything")){ if(brain!=null) brain.clearAll(); try{ mem.longFile.delete(); }catch(Exception e){} local("done, I forgot everything I knew about you."); return true; }
-  if(low.equals("clear history")){ try{ mem.chatFile.delete(); mem.notifFile.delete(); chatView.messagesContainer.removeAllViews(); }catch(Exception e){} unseenNotifs=0; local("history cleared"); return true; }
+  if(low.equals("forget all")||low.equals("forget everything")){ if(brain!=null) brain.clearAll(); try{ mem.longFile.delete(); }catch(Exception e){ L.w("MainService",e); } local("done, I forgot everything I knew about you."); return true; }
+  if(low.equals("clear history")){ try{ mem.chatFile.delete(); mem.notifFile.delete(); chatView.messagesContainer.removeAllViews(); }catch(Exception e){ L.w("MainService",e); } unseenNotifs=0; local("history cleared"); return true; }
   return false;
  }
 
@@ -450,7 +450,7 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
   int m=moodFor(clean); moodEvent(m==0?needs.mood(asleep()):m,8000);
   slimeView.say(clean); slimeView.bounceAnim();
   addChat("Slime: "+clean,false);
-  if(ttsOn){ try{ tts.speak(MathText.speakable(clean),TextToSpeech.QUEUE_FLUSH,null,null); }catch(Exception e){} }
+  if(ttsOn){ try{ tts.speak(MathText.speakable(clean),TextToSpeech.QUEUE_FLUSH,null,null); }catch(Exception e){ L.w("MainService",e); } }
   mem.saveChat(user,clean);
   if(openTarget!=null&&!openTarget.isEmpty()){ addChat("Slime: "+executor.run("open",openTarget),false); }
  }
@@ -459,16 +459,16 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
  @Override public void onDestroy(){
   super.onDestroy();
   instance=null;
-  try{ h.removeCallbacksAndMessages(null); }catch(Exception e){}
-  try{ if(wander!=null) wander.cancel(); }catch(Exception e){}
+  try{ h.removeCallbacksAndMessages(null); }catch(Exception e){ L.w("MainService",e); }
+  try{ if(wander!=null) wander.cancel(); }catch(Exception e){ L.w("MainService",e); }
   stopSensor();
-  try{ if(rx!=null) unregisterReceiver(rx); }catch(Exception e){}
-  try{ if(clipMgr!=null) clipMgr.removePrimaryClipChangedListener(clipL); }catch(Exception e){}
-  try{ if(tts!=null) tts.shutdown(); }catch(Exception e){}
-  try{ wm.removeView(slimeView); }catch(Exception e){}
-  try{ wm.removeView(chatView); }catch(Exception e){}
+  try{ if(rx!=null) unregisterReceiver(rx); }catch(Exception e){ L.w("MainService",e); }
+  try{ if(clipMgr!=null) clipMgr.removePrimaryClipChangedListener(clipL); }catch(Exception e){ L.w("MainService",e); }
+  try{ if(tts!=null) tts.shutdown(); }catch(Exception e){ L.w("MainService",e); }
+  try{ wm.removeView(slimeView); }catch(Exception e){ L.w("MainService",e); }
+  try{ wm.removeView(chatView); }catch(Exception e){ L.w("MainService",e); }
  }
  @Override public IBinder onBind(Intent i){ return null; }
  @Override public void onConfigurationChanged(android.content.res.Configuration cfg){ super.onConfigurationChanged(cfg); Walls.measure(this); h.postDelayed(new Runnable(){ public void run(){ clampPos(); updateViews(); }},400); }
- @Override public int onStartCommand(Intent in,int fl,int id){ try{ if(instance==this&&slimeView!=null) Walls.recenter(this); }catch(Exception e){} return START_STICKY; }
+ @Override public int onStartCommand(Intent in,int fl,int id){ try{ if(instance==this&&slimeView!=null) Walls.recenter(this); }catch(Exception e){ L.w("MainService",e); } return START_STICKY; }
 }

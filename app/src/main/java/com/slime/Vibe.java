@@ -9,7 +9,7 @@ public class Vibe {
  long lastHum=0, humWait=0, nextPeek=0;
  public Vibe(MainService s){ this.s=s; }
  final Runnable tick=new Runnable(){ public void run(){
-  try{ step(); }catch(Exception e){}
+  try{ step(); }catch(Exception e){ L.w("Vibe",e); }
   s.h.postDelayed(this,40000);
  }};
  public void start(){
@@ -43,7 +43,7 @@ public class Vibe {
  void dance(String line){
   s.moodEvent(rnd.nextBoolean()?3:7,9000);
   s.slimeView.say(line); Mouth.talkFor(5000L,true);
-  for(int i=0;i<3;i++){ s.h.postDelayed(new Runnable(){ public void run(){ try{ s.slimeView.bounceAnim(); }catch(Exception e){} }},i*450L); }
+  for(int i=0;i<3;i++){ s.h.postDelayed(new Runnable(){ public void run(){ try{ s.slimeView.bounceAnim(); }catch(Exception e){ L.w("Vibe",e); } }},i*450L); }
  }
  void humLocal(){ dance(HUMS[rnd.nextInt(HUMS.length)]); }
  void humAI(String key){
@@ -96,7 +96,7 @@ public class Vibe {
   try{
    Intent i=new Intent(s,CommandsActivity.class); i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
    s.startActivity(i);
-   try{ s.chatView.setVisibility(View.GONE); }catch(Exception e){}
+   try{ s.chatView.setVisibility(View.GONE); }catch(Exception e){ L.w("Vibe",e); }
   }catch(Exception e){
    s.local("couldn't open the commands screen. try: phone help",false);
   }

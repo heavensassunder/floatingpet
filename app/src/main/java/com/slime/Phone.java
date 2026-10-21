@@ -10,7 +10,7 @@ public class Phone {
  final MainService s; final Shell sh; String pending=null; long pendingAt=0;
  public Phone(MainService s){ this.s=s; this.sh=new Shell(s); }
 
- static void focusable(MainService s){ try{ s.p2.flags&=~WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE; }catch(Exception e){} }
+ static void focusable(MainService s){ try{ s.p2.flags&=~WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE; }catch(Exception e){ L.w("Phone",e); } }
 
  // after a reboot: switch my own eyes (accessibility + notification access) back on, if Shizuku is running
  public void start(){
@@ -59,7 +59,7 @@ public class Phone {
  }
  // hide my chat so taps and keys land on the real screen, not on me
  void hideThen(Runnable r){
-  try{ s.chatView.setVisibility(View.GONE); s.p2.flags|=WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE; s.wm.updateViewLayout(s.chatView,s.p2); }catch(Exception e){}
+  try{ s.chatView.setVisibility(View.GONE); s.p2.flags|=WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE; s.wm.updateViewLayout(s.chatView,s.p2); }catch(Exception e){ L.w("Phone",e); }
   s.h.postDelayed(r,350);
  }
  void act(String script,String ok,boolean hide){ go(script,ok,hide,false); }
@@ -221,9 +221,9 @@ public class Phone {
    sh.rish("screencap -p '"+q(p)+"' && chmod 666 '"+q(p)+"'",new Shell.Result(){ public void done(int code,String out,String err,String info){
     if(info!=null||code!=0){ s.showChat(); s.local(info!=null?info:"screencap failed: "+clip(err),false); return; }
     Vision.ask(key,s.sp.getString("visionModel",Vision.DEFAULT),question,img,new Vision.Callback(){ public void onResult(String reply){
-     try{ img.delete(); }catch(Exception e){}
+     try{ img.delete(); }catch(Exception e){ L.w("Phone",e); }
      s.showChat(); s.speak(reply);
-     try{ s.mem.saveChat("look: "+question,reply); }catch(Exception e){}
+     try{ s.mem.saveChat("look: "+question,reply); }catch(Exception e){ L.w("Phone",e); }
     }});
    }});
   }});
