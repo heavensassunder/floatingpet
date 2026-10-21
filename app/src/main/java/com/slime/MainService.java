@@ -4,7 +4,6 @@ import android.content.Intent; import android.content.IntentFilter; import andro
 import android.graphics.PixelFormat;
 import android.os.BatteryManager; import android.os.Handler; import android.os.IBinder; import android.os.PowerManager;
 import android.speech.tts.TextToSpeech;
-import android.util.DisplayMetrics;
 import android.view.*; import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.Toast;
 import java.util.Calendar; import java.util.Locale; import java.util.Random;
@@ -96,11 +95,6 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
  }
 
  // ---------- screen bounds: the slime may go ANYWHERE, even over the status bar and clock ----------
- DisplayMetrics real(){
-  DisplayMetrics dm=new DisplayMetrics();
-  try{ wm.getDefaultDisplay().getRealMetrics(dm); }catch(Exception e){ dm=getResources().getDisplayMetrics(); }
-  return dm;
- }
  int scrW(){ return Walls.W(this); }
  int scrH(){ return Walls.H(this); }
  int minX(){ return Walls.minX(this); }
