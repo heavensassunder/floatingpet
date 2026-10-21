@@ -16,10 +16,10 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
  static final int CHAT_H=360;
  WindowManager wm; SlimeView slimeView; ChatView chatView; WindowManager.LayoutParams p1,p2;
  float dx,dy;
- long lastTap=0,lastTouch=0,lastPoke=0,lastTalk=0,lastGreet=0,lastClipNudge=0,lastNotifBubble=0,lastShake=0,lastShakeReact=0,eventMoodUntil=0;
- int shakeCount=0,pokeCount=0,unseenNotifs=0;
+ long lastTap=0,lastTouch=0,lastPoke=0,lastTalk=0,lastGreet=0,lastClipNudge=0,lastShake=0,lastShakeReact=0,eventMoodUntil=0;
+ int shakeCount=0,pokeCount=0;
  String[] moods={"Happy!","Sleepy","Mad","Love","Hungry","Cry","Wow","Wink","Dead"};
- MemoryManager mem; ActionExecutor executor; TextToSpeech tts; boolean ttsOn=false;
+ MemoryManager mem; ActionExecutor executor; TextToSpeech tts; boolean ttsOn=false; Notifs notifs;
  Handler h=new Handler(); Random rnd=new Random(); SharedPreferences sp; Needs needs;
  SensorManager sm; Sensor accel; boolean sensing=false; Wander wander; BroadcastReceiver rx; ClipboardManager clipMgr;
 
@@ -54,7 +54,7 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
   p2.gravity=Gravity.TOP|Gravity.START; p2.softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING; chatView.onKeyboard=new Runnable(){ public void run(){ updateViews(); }}; placeChat(); chatView.setVisibility(View.GONE);
   try{ wm.addView(slimeView,p1); wm.addView(chatView,p2); }catch(Exception e){ Toast.makeText(this,"Allow overlay first",Toast.LENGTH_LONG).show(); stopSelf(); return; }
   instance=this;
-  Walls.measure(this); phone=new Phone(this); phone.start(); extra=new Extra(this); vibe=new Vibe(this); vibe.start(); guard=new Guard(this); h.postDelayed(guard,1200); wander=new Wander(this);
+  Walls.measure(this); phone=new Phone(this); phone.start(); extra=new Extra(this); vibe=new Vibe(this); vibe.start(); guard=new Guard(this); h.postDelayed(guard,1200); wander=new Wander(this); notifs=new Notifs(this);
   boolean as=asleep(); needs.tick(as,isCharging()); slimeView.setMood(needs.mood(as));
 
   chatView.close.setOnClickListener(new View.OnClickListener(){ public void onClick(View v){ chatView.setVisibility(View.GONE); }});
@@ -200,7 +200,7 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
  }
  String localLine(){
   int hr=Calendar.getInstance().get(Calendar.HOUR_OF_DAY); int bat=batteryLevel(); boolean ch=isCharging();
-  if(unseenNotifs>=2&&rnd.nextInt(100)<60) return "you have "+unseenNotifs+" unread pings. type 'catch me up'";
+  if(notifs.unseen>=2&&rnd.nextInt(100)<60) return "you have "+notifs.unseen+" unread pings. type 'catch me up'";
   if(bat>=0&&bat<=20&&!ch) return "battery's at "+bat+"%... charger?";
   if(needs.food<30f) return Lines.pick(Lines.HUNGRY);
   if(needs.joy<30f) return Lines.pick(Lines.SAD);
@@ -213,7 +213,7 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
   String key=sp.getString("key","");
   if(key.isEmpty()){ speak(localLine()); return; }
   Calendar c=Calendar.getInstance(); String time=String.format(Locale.US,"%02d:%02d",c.get(Calendar.HOUR_OF_DAY),c.get(Calendar.MINUTE));
-  String sys=OpenRouterClient.buildSystem(brain.context(""),moods[slimeView.mood],"(not looking at the screen)",mem.getNotifContext(),mem.getRecentContext(4))+"\nYOUR NEEDS: "+needs.describe()+". Unread notifications: "+unseenNotifs+". Battery: "+batteryLevel()+"%.\nThis time you may use at most 22 words. Do not add [[open:]] tags."+Vibe.STYLE;
+  String sys=OpenRouterClient.buildSystem(brain.context(""),moods[slimeView.mood],"(not looking at the screen)",mem.getNotifContext(),mem.getRecentContext(4))+"\nYOUR NEEDS: "+needs.describe()+". Unread notifications: "+notifs.unseen+". Battery: "+batteryLevel()+"%.\nThis time you may use at most 22 words. Do not add [[open:]] tags."+Vibe.STYLE;
   String user="(You decide to say something on your own, unprompted. Time is "+time+". Say ONE short casual thing like a living pet would. Maybe mention something you remember about me, the time, your needs, or my notifications. At most one question. Don't start with 'hey' every time.)";
   OpenRouterClient.askAuto(key,sys,user,new OpenRouterClient.Callback(){ public void onResult(String reply){
    if(reply==null||isErr(reply)){ speak(localLine()); return; }
@@ -253,40 +253,11 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
   if(gone>5*3600000L) line=Lines.byTime(Calendar.getInstance().get(Calendar.HOUR_OF_DAY));
   else if(gone>90*60000L) line=Lines.pick(Lines.BACK);
   if(line!=null&&now-lastGreet>10*60000L){ lastGreet=now; needs.cheer(8f); react(line,3,6000); return; }
-  if(unseenNotifs>=3&&now-lastNotifBubble>60000L){ lastNotifBubble=now; slimeView.say("you missed "+unseenNotifs+" pings. type 'catch me up'"); slimeView.bounceAnim(); }
+  if(notifs.unseen>=3&&now-notifs.lastBubble>60000L){ notifs.lastBubble=now; slimeView.say("you missed "+notifs.unseen+" pings. type 'catch me up'"); slimeView.bounceAnim(); }
  }
 
  // ---------- notifications ----------
- boolean looksUrgent(String s){
-  String l=s.toLowerCase();
-  String[] k={"urgent","asap","emergency","call me","immediately","important","where are you","are you there","!!!"};
-  for(String w:k){ if(l.contains(w)) return true; }
-  return false;
- }
- public void onNotif(String pkg,String title,String text){
-  try{
-   unseenNotifs++;
-   long now=System.currentTimeMillis();
-   if(!sp.getBoolean("pings",true)||!screenOn()||Modes.quiet(this)) return;
-   if(chatView.getVisibility()==View.VISIBLE||asleep()||privateNow()) return;
-   if(now<sp.getLong("muteUntil",0)||now-lastNotifBubble<20000) return;
-   lastNotifBubble=now;
-   if(looksUrgent(title+" "+text)) react(title+" sounds urgent!",6,5000);
-   else { slimeView.say("ping from "+title); slimeView.bounceAnim(); }
-  }catch(Exception e){ L.w("MainService",e); }
- }
- String notifList(int n){
-  try{
-   org.json.JSONArray a=mem.loadArr(mem.notifFile); StringBuilder sb=new StringBuilder(); long now=System.currentTimeMillis();
-   for(int i=Math.max(0,a.length()-n);i<a.length();i++){ org.json.JSONObject o=a.getJSONObject(i); long age=(now-o.optLong("t",now))/60000; sb.append("- ").append(o.optString("title")).append(": ").append(o.optString("text")).append(" (").append(age).append(" min ago)\n"); }
-   return sb.toString();
-  }catch(Exception e){ return ""; }
- }
- void catchUp(String original){
-  String list=notifList(15); unseenNotifs=0;
-  if(list.isEmpty()){ local("nothing new, your inbox is quiet"); return; }
-  askTask(original,"Catch me up on my notifications. Say how many there are, who matters most, and flag anything that sounds urgent.\n\nNOTIFICATIONS (oldest first):\n"+list);
- }
+ public void onNotif(String pkg,String title,String text){ notifs.onNotif(pkg,title,text); }
 
  // ---------- clipboard ----------
  void onClipChanged(){
@@ -341,7 +312,7 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
   if(low.equals("pings off")||low.equals("pings on")){ sp.edit().putBoolean("pings",low.endsWith("on")).apply(); local(low.endsWith("on")?"ok, I'll tell you about new pings":"ok, no more ping bubbles",false); return true; }
   if(low.contains("what do you remember")||low.contains("what do you know about me")){ brain.showSummary(); return true; }
   if(low.equals("forget all")||low.equals("forget everything")){ if(brain!=null) brain.clearAll(); try{ mem.longFile.delete(); }catch(Exception e){ L.w("MainService",e); } local("done, I forgot everything I knew about you."); return true; }
-  if(low.equals("clear history")){ try{ mem.chatFile.delete(); mem.notifFile.delete(); chatView.messagesContainer.removeAllViews(); }catch(Exception e){ L.w("MainService",e); } unseenNotifs=0; local("history cleared"); return true; }
+  if(low.equals("clear history")){ try{ mem.chatFile.delete(); mem.notifFile.delete(); chatView.messagesContainer.removeAllViews(); }catch(Exception e){ L.w("MainService",e); } notifs.unseen=0; local("history cleared"); return true; }
   return false;
  }
 
@@ -356,7 +327,7 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
   if(Modes.handle(this,t,low)||Pouch.handle(this,t,low)||Evo.handle(this,low)||(brain!=null&&brain.handle(t,low))) return;
   if(vibe!=null&&vibe.handle(t,low)) return;
   if(isClipCmd(low)){ clipTask(t,low); return; }
-  if(low.contains("catch me up")||low.contains("what did i miss")||low.equals("pings")||low.equals("notifs")||low.equals("notifications")){ catchUp(t); return; }
+  if(low.contains("catch me up")||low.contains("what did i miss")||low.equals("pings")||low.equals("notifs")||low.equals("notifications")){ notifs.catchUp(t); return; }
   if(brain!=null) brain.observe(t); Evo.count(this,low);
   String cmd=null, arg="";
   if(low.equals("settings")||low.equals("open settings")){ cmd="open"; arg="settings"; }
