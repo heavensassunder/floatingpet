@@ -210,7 +210,7 @@ class Voice {
   if(tts==null||!ready){ s.local("local engine still waking up, try again in a second",false); return; }
   Set<android.speech.tts.Voice> all=tts.getVoices();
   ArrayList<android.speech.tts.Voice> en=new ArrayList<android.speech.tts.Voice>();
-  if(all!=null){ for(Voice v:all){ if(v.getLocale()!=null&&"en".equals(v.getLocale().getLanguage())&&!v.isNetworkConnectionRequired()) en.add(v); } }
+  if(all!=null){ for(android.speech.tts.Voice v:all){ if(v.getLocale()!=null&&"en".equals(v.getLocale().getLanguage())&&!v.isNetworkConnectionRequired()) en.add(v); } }
   if(en.isEmpty()){ s.local("no offline English voices found; the cloud voice still works",false); return; }
   StringBuilder sb=new StringBuilder("local voices (pick with voice N or name):\n");
   for(int i=0;i<Math.min(20,en.size());i++) sb.append(i+1).append(". ").append(en.get(i).getName()).append('\n');

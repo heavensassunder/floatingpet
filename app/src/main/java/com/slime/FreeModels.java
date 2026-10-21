@@ -32,7 +32,7 @@ final class FreeModels {
   refresh(sp,null);
  }
  static void refresh(final SharedPreferences sp,final Done cb){
-  if(refreshing){ if(cb!=null) cb.notify(); return; }
+  if(refreshing){ if(cb!=null) cb.done(false); return; }
   refreshing=true;
   new Thread(new Runnable(){ public void run(){
    boolean ok=false;
