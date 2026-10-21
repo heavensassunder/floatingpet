@@ -61,7 +61,7 @@ public class OpenRouterClient {
   br.close(); return sb.toString();
  }
  static JSONObject msg(String role,String content) throws Exception{ JSONObject o=new JSONObject(); o.put("role",role); o.put("content",content); return o; }
- static String once(String key,String system,String user,boolean merged,int[] code) throws Exception{
+ static String once(String key,String model,String system,String user,boolean merged,int[] code) throws Exception{
   JSONObject body=new JSONObject();
   body.put("model",model); body.put("max_tokens",maxTokensFor(user)); body.put("temperature",0.9);
   JSONArray msgs=new JSONArray();
@@ -98,15 +98,16 @@ public class OpenRouterClient {
   if(code==400||code==404||code==408||code>=500) return null;
   return "my brain lagged ("+code+") try again";
  }
- // one key, with one retry for flaky free models
+ // one key, with one retry for flaky free models; each attempt rotates to another free model
  static String attempt(String key,String system,String user){
   try{
    int[] code={0};
-   String resp=once(key,system,user,false,code);
+   String m=FreeModels.nextChat(prefs);
+   String resp=once(key,m,system,user,false,code);
    String out=interpret(code[0],resp);
    if(out==null){
     int first=code[0];
-    resp=once(key,system,user,first==400,code);
+    resp=once(key,m,system,user,first==400,code);
     out=interpret(code[0],resp);
     if(out==null) out="my bad, brain buffered - say that again?";
    }

@@ -220,7 +220,7 @@ public class Phone {
    String p=img.getAbsolutePath();
    sh.rish("screencap -p '"+q(p)+"' && chmod 666 '"+q(p)+"'",new Shell.Result(){ public void done(int code,String out,String err,String info){
     if(info!=null||code!=0){ s.showChat(); s.local(info!=null?info:"screencap failed: "+clip(err),false); return; }
-    Vision.ask(key,s.sp.getString("visionModel",Vision.DEFAULT),question,img,new Vision.Callback(){ public void onResult(String reply){
+    Vision.ask(key,FreeModels.nextVision(s.sp),question,img,new Vision.Callback(){ public void onResult(String reply){
      try{ img.delete(); }catch(Exception e){ L.w("Phone",e); }
      s.showChat(); s.speak(reply);
      try{ s.mem.saveChat("look: "+question,reply); }catch(Exception e){ L.w("Phone",e); }
