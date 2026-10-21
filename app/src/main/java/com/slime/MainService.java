@@ -1,5 +1,4 @@
 package com.slime;
-import android.animation.Animator; import android.animation.AnimatorListenerAdapter; import android.animation.ValueAnimator;
 import android.app.Service;
 import android.content.BroadcastReceiver; import android.content.ClipData; import android.content.ClipboardManager; import android.content.Context; import android.content.Intent; import android.content.IntentFilter; import android.content.SharedPreferences;
 import android.graphics.PixelFormat;
@@ -7,7 +6,7 @@ import android.hardware.Sensor; import android.hardware.SensorEvent; import andr
 import android.os.BatteryManager; import android.os.Handler; import android.os.IBinder; import android.os.PowerManager;
 import android.speech.tts.TextToSpeech;
 import android.util.DisplayMetrics;
-import android.view.*; import android.view.accessibility.AccessibilityNodeInfo; import android.view.animation.AccelerateDecelerateInterpolator;
+import android.view.*; import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.Toast;
 import java.util.Calendar; import java.util.Locale; import java.util.Random;
 public class MainService extends Service implements TextToSpeech.OnInitListener {
@@ -22,10 +21,9 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
  String[] moods={"Happy!","Sleepy","Mad","Love","Hungry","Cry","Wow","Wink","Dead"};
  MemoryManager mem; ActionExecutor executor; TextToSpeech tts; boolean ttsOn=false;
  Handler h=new Handler(); Random rnd=new Random(); SharedPreferences sp; Needs needs;
- SensorManager sm; Sensor accel; boolean sensing=false; ValueAnimator wander; BroadcastReceiver rx; ClipboardManager clipMgr;
+ SensorManager sm; Sensor accel; boolean sensing=false; Wander wander; BroadcastReceiver rx; ClipboardManager clipMgr;
 
  Runnable lifeTick=new Runnable(){ public void run(){ try{ life(); }catch(Exception e){ L.w("MainService",e); } h.postDelayed(this,30000); }};
- Runnable wanderTick=new Runnable(){ public void run(){ try{ wanderStep(); }catch(Exception e){ L.w("MainService",e); } h.postDelayed(this,6000+rnd.nextInt(9000)); }};
  SensorEventListener shakeL=new SensorEventListener(){
   public void onSensorChanged(SensorEvent e){
    float x=e.values[0],y=e.values[1],z=e.values[2];
@@ -56,7 +54,7 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
   p2.gravity=Gravity.TOP|Gravity.START; p2.softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING; chatView.onKeyboard=new Runnable(){ public void run(){ updateViews(); }}; placeChat(); chatView.setVisibility(View.GONE);
   try{ wm.addView(slimeView,p1); wm.addView(chatView,p2); }catch(Exception e){ Toast.makeText(this,"Allow overlay first",Toast.LENGTH_LONG).show(); stopSelf(); return; }
   instance=this;
-  Walls.measure(this); phone=new Phone(this); phone.start(); extra=new Extra(this); vibe=new Vibe(this); vibe.start(); guard=new Guard(this); h.postDelayed(guard,1200);
+  Walls.measure(this); phone=new Phone(this); phone.start(); extra=new Extra(this); vibe=new Vibe(this); vibe.start(); guard=new Guard(this); h.postDelayed(guard,1200); wander=new Wander(this);
   boolean as=asleep(); needs.tick(as,isCharging()); slimeView.setMood(needs.mood(as));
 
   chatView.close.setOnClickListener(new View.OnClickListener(){ public void onClick(View v){ chatView.setVisibility(View.GONE); }});
@@ -94,10 +92,10 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
       } else {
        if(now-lastPoke<1500) pokeCount++; else pokeCount=1;
        lastPoke=now;
-       if(pokeCount>=4){ pokeCount=0; needs.cheer(-6f); react("stop poking me!",2,6000); fleeFrom(e.getRawX(),e.getRawY()); return true; }
+       if(pokeCount>=4){ pokeCount=0; needs.cheer(-6f); react("stop poking me!",2,6000); wander.fleeFrom(e.getRawX(),e.getRawY()); return true; }
        needs.cheer(2f);
        int m=(slimeView.mood+1)%9; moodEvent(m,12000); slimeView.bounceAnim(); slimeView.say(moods[m]);
-       fleeFrom(e.getRawX(),e.getRawY());
+       wander.fleeFrom(e.getRawX(),e.getRawY());
       }
       return true;
      }
@@ -111,7 +109,7 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
   if(screenOn()) startSensor();
   setupReceivers();
   try{ clipMgr=(ClipboardManager)getSystemService(CLIPBOARD_SERVICE); clipMgr.addPrimaryClipChangedListener(clipL); }catch(Exception e){ L.w("MainService",e); }
-  h.postDelayed(lifeTick,30000); h.postDelayed(wanderTick,9000);
+  h.postDelayed(lifeTick,30000); wander.start();
   if(!as) h.postDelayed(new Runnable(){ public void run(){ slimeView.say("I'm awake!"); slimeView.bounceAnim(); }},1200);
  }
 
@@ -224,47 +222,6 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
   }});
  }
 
- // ---------- wandering: anywhere on the screen ----------
- void wanderStep(){
-  long now=System.currentTimeMillis();
-  if(chatView.getVisibility()==View.VISIBLE||now-lastTouch<8000) return;
-  if(wander!=null&&wander.isRunning()) return;
-  if(!screenOn()) return;
-  int sw=scrW();
-  if(slimeView.mood==1){
-   int tx=(p1.x<sw/2)?minX():maxX(); int ty=maxY()-100;
-   if(Math.abs(p1.x-tx)<30&&Math.abs(p1.y-ty)<30) return;
-   return;
-  }
-  if(rnd.nextInt(100)<35) return;
-  int tx; int roll=rnd.nextInt(100);
-  if(roll<25) tx=minX(); else if(roll<50) tx=maxX(); else tx=minX()+rnd.nextInt(Math.max(1,maxX()-minX()));
-  int ty=minY()+rnd.nextInt(Math.max(1,maxY()-minY()));
-  glideTo(tx,ty);
- }
- void glideRandom(){
-  glideTo(minX()+rnd.nextInt(Math.max(1,maxX()-minX())),minY()+rnd.nextInt(Math.max(1,maxY()-minY())));
- }
- void glideTo(int tx0,int ty0){ glideTo(tx0,ty0,-1); }
- void glideTo(int tx0,int ty0,final long fixedMs){
-  if(wander!=null) wander.cancel();
-  final int tx=Math.max(minX(),Math.min(tx0,maxX()));
-  final int ty=Math.max(minY(),Math.min(ty0,maxY()));
-  final int sx=p1.x, sy=p1.y;
-  double dist=Math.sqrt((tx-sx)*(double)(tx-sx)+(ty-sy)*(double)(ty-sy));
-  wander=ValueAnimator.ofFloat(0f,1f); wander.setDuration(fixedMs>0?fixedMs:(long)Math.min(6000,300+dist*2.2)); wander.setInterpolator(new android.view.animation.LinearInterpolator());
-  wander.addUpdateListener(new ValueAnimator.AnimatorUpdateListener(){ public void onAnimationUpdate(ValueAnimator a){ float f=((Float)a.getAnimatedValue()).floatValue(); p1.x=(int)(sx+(tx-sx)*f); p1.y=(int)(sy+(ty-sy)*f); updateViews(); }});
-  wander.addListener(new AnimatorListenerAdapter(){ public void onAnimationEnd(Animator a){ sp.edit().putInt("x",p1.x).putInt("y",p1.y).apply(); }});
-  wander.start();
- }
- void fleeFrom(float tx,float ty){
-  if(wander!=null) wander.cancel();
-  int fx=p1.x+((p1.x+SW/2)>tx?220:-220);
-  int fy=p1.y+((p1.y+SH/2)>ty?170:-170);
-  glideTo(fx,fy,420); slimeView.bounceAnim();
-  sp.edit().putInt("x",p1.x).putInt("y",p1.y).apply();
- }
-
  // ---------- phone reactions ----------
  void setupReceivers(){
   rx=new BroadcastReceiver(){ public void onReceive(Context c,Intent i){
@@ -372,7 +329,7 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
    if(needs.food>90f){ local("I'm stuffed, no more!"); } else { needs.feed(25f); moodEvent(3,6000); local("nom nom nom... thanks!"); }
    return true;
   }
-  if(low.equals("play")||low.equals("play with me")){ needs.cheer(15f); moodEvent(7,6000); local("tag, you're it!"); chatView.setVisibility(View.GONE); glideRandom(); return true; }
+  if(low.equals("play")||low.equals("play with me")){ needs.cheer(15f); moodEvent(7,6000); local("tag, you're it!"); chatView.setVisibility(View.GONE); wander.glideRandom(); return true; }
   if(low.equals("shh")||low.equals("be quiet")||low.equals("quiet")||low.equals("mute")){ sp.edit().putLong("muteUntil",now+2*3600000L).apply(); local("ok, quiet for 2 hours. say 'talk to me' when you want me back.",false); return true; }
   if(low.equals("talk to me")||low.equals("unmute")){ sp.edit().putLong("muteUntil",0).apply(); local("yay, I'm back to chatting!"); return true; }
   if(low.equals("talk more")||low.equals("talk less")){
@@ -460,7 +417,7 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
   super.onDestroy();
   instance=null;
   try{ h.removeCallbacksAndMessages(null); }catch(Exception e){ L.w("MainService",e); }
-  try{ if(wander!=null) wander.cancel(); }catch(Exception e){ L.w("MainService",e); }
+  try{ if(wander!=null) wander.destroy(); }catch(Exception e){ L.w("MainService",e); }
   stopSensor();
   try{ if(rx!=null) unregisterReceiver(rx); }catch(Exception e){ L.w("MainService",e); }
   try{ if(clipMgr!=null) clipMgr.removePrimaryClipChangedListener(clipL); }catch(Exception e){ L.w("MainService",e); }
