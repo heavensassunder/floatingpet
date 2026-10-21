@@ -29,8 +29,11 @@ class Voice {
   ready=false;
   try{ if(tts!=null) tts.shutdown(); }catch(Exception e){ L.w("Voice",e); }
   TextToSpeech.OnInitListener init=new TextToSpeech.OnInitListener(){ public void onInit(int status){
-   if(status!=TextToSpeech.SUCCESS){ L.w("Voice",new Exception("local TTS init failed "+status)); return; }
-   ready=true;
+   if(status!=TextToSpeech.SUCCESS){
+    L.w("Voice",new Exception("local TTS init failed "+status));
+    ready=false; pending=null; markSpeaking(false);
+    return;
+   }
    try{
     tts.setLanguage(Locale.US);
     String vn=s.sp.getString("voiceName","");
@@ -75,7 +78,13 @@ class Voice {
  // ---------- local path ----------
  private void localSpeak(final String text){
   if(tts==null){ markSpeaking(false); return; }
-  if(!ready){ pending=text; return; }
+  if(!ready){
+   pending=text;
+   h.postDelayed(new Runnable(){ public void run(){
+    if(pending!=null){ pending=null; markSpeaking(false); }
+   }},8000);
+   return;
+  }
   try{
    tts.setOnUtteranceProgressListener(new android.speech.tts.UtteranceProgressListener(){
     public void onStart(String id){}

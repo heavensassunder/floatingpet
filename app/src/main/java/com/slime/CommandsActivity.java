@@ -72,6 +72,8 @@ public class CommandsActivity extends Activity {
 
   head("Voice and listening");
   item("Mic button / listen on","tap Mic for one utterance, or say listen on for hands-free mode while the screen is on");
+  item("listen test","narrated diagnostic: ear open, voice heard, levels, recognition result and engine errors");
+  item("listen engine auto / ondevice","use the default speech engine, or force the Android 12+ on-device recognizer");
   item("listen off / listen status","stop continuous listening, or check its state");
   item("listen language en / sw","recognition language (English US or Swahili KE)");
   item("tts on / tts off","let the slime speak replies aloud (also the TTS button)");
