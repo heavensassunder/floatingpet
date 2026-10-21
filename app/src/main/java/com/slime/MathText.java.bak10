@@ -1,0 +1,21 @@
+package com.slime;
+public class MathText {
+ static final String[][] T={
+  {"\\alpha","\u03b1"},{"\\beta","\u03b2"},{"\\gamma","\u03b3"},{"\\delta","\u03b4"},{"\\epsilon","\u03b5"},{"\\theta","\u03b8"},{"\\lambda","\u03bb"},{"\\mu","\u03bc"},
+  {"\\pi","\u03c0"},{"\\sigma","\u03c3"},{"\\tau","\u03c4"},{"\\phi","\u03c6"},{"\\omega","\u03c9"},{"\\Omega","\u03a9"},{"\\Delta","\u0394"},{"\\Sigma","\u03a3"},
+  {"\\nabla","\u2207"},{"\\partial","\u2202"},{"\\infty","\u221e"},{"\\sum","\u2211"},{"\\int","\u222b"},{"\\cdot","\u00b7"},{"\\times","\u00d7"},{"\\pm","\u00b1"},
+  {"\\leq","\u2264"},{"\\geq","\u2265"},{"\\neq","\u2260"},{"\\approx","\u2248"},{"\\rightarrow","\u2192"},{"\\to","\u2192"},{"\\left",""},{"\\right",""},{"\\,",""},{"\\ "," "}
+ };
+ static String plain(String s){
+  if(s==null||s.indexOf('\\')<0&&s.indexOf('$')<0&&s.indexOf('^')<0) return s;
+  try{
+   for(int i=0;i<3;i++) s=s.replaceAll("\\\\frac\\{([^{}]*)\\}\\{([^{}]*)\\}","($1)/($2)");
+   s=s.replaceAll("\\\\sqrt\\{([^{}]*)\\}","\u221a($1)");
+   for(String[] p:T) s=s.replace(p[0],p[1]);
+   s=s.replace("^2","\u00b2").replace("^3","\u00b3");
+   s=s.replace("$$","").replace("$","").replace("\\(","").replace("\\)","").replace("\\[","").replace("\\]","");
+   s=s.replace("{","").replace("}","");
+  }catch(Exception e){}
+  return s;
+ }
+}

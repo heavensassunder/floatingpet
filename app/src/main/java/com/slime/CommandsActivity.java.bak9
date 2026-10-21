@@ -1,0 +1,132 @@
+package com.slime;
+import android.app.Activity; import android.graphics.Color; import android.graphics.Typeface; import android.os.Bundle; import android.text.Html;
+import android.view.ViewGroup; import android.widget.LinearLayout; import android.widget.ScrollView; import android.widget.TextView;
+public class CommandsActivity extends Activity {
+ LinearLayout col; float d;
+ @Override protected void onCreate(Bundle b){
+  super.onCreate(b);
+  d=getResources().getDisplayMetrics().density;
+  int pad=(int)(16*d);
+  ScrollView sv=new ScrollView(this); sv.setBackgroundColor(Color.parseColor("#1B2631"));
+  col=new LinearLayout(this); col.setOrientation(LinearLayout.VERTICAL); col.setPadding(pad,pad,pad,pad*2);
+  sv.addView(col,new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT));
+  text("SlimeDroid commands",22f,"#FFFFFF",true,0);
+  text("Type these in the slime chat (long-press the slime to open it, or tap the Cmds button). Words in CAPS are things you fill in.",13f,"#AEB6BF",false,6);
+
+  head("Gestures and buttons");
+  item("tap the slime","its mood changes and it dashes away");
+  item("poke it 4 times","it gets annoyed");
+  item("drag","move it anywhere");
+  item("long-press","open or close the chat");
+  item("double-tap","close the pet");
+  item("buttons","Send, See (read my screen), TTS (voice on/off), Hist (history), X, and quick buttons Feed, Play, Clip, Catch up, Shh, Status, Cmds");
+
+  head("Pet life");
+  item("feed","give it a snack");
+  item("play","play tag with it");
+  item("status","food, energy, joy and battery");
+  item("shh","quiet for 2 hours");
+  item("talk to me","un-mute it");
+  item("talk more / talk less","how often it chats on its own");
+  item("say something","make it speak now");
+  item("wake up","keep it awake for 5 hours");
+  item("pings on / pings off","bubbles for new notifications");
+  item("catch me up","summary of your recent notifications");
+  item("what do you remember","what it knows about you");
+  item("forget all","wipe what it remembers");
+  item("clear history","clear chat and notification history");
+
+  head("Memory");
+  item("memories","see everything I remember, numbered");
+  item("remember TEXT","save something on purpose");
+  item("forget N / forget WORDS","remove one memory");
+  item("forget all","wipe all memories");
+  item("memory on / memory off","allow or stop automatic saving");
+  item("what do you remember","short summary by topic");
+  head("Modes");
+  item("focus mode","red, quiet, notifications muted, do not disturb on");
+  item("hacker mode","dark with a green glow, technical answers");
+  item("study mode","blue with glasses, step by step teaching");
+  item("game mode","yellow, hides while you play games");
+  item("chill mode","back to normal (also: mode, focus mode off)");
+  head("Files (Shizuku)");
+  item("hold NAME","pick up a file (it shows on the slime and makes it chubby)");
+  item("what are you holding","list what it carries");
+  item("drop","put everything in Downloads (or: drop to documents / pictures / termux / a folder path)");
+  item("stash","put what it carries away for later");
+  head("Growth");
+  item("evolution","level, xp and unlocked accessories (also shown in status)");
+  item("models","list the free AI models available right now");
+  head("Vibes");
+  item("hum","it hums a little tune (it also does this by itself when music is playing)");
+  item("hum on / hum off","allow or stop humming");
+  item("peek","it glances at your screen and says what it thinks (it also does this at random times)");
+  item("peek on / peek off","allow or stop random peeking");
+  item("peek more / peek less","how often it peeks");
+
+  head("Clipboard");
+  item("clip","explain what you copied");
+  item("clip summarize","short summary of it");
+  item("clip translate","translate it");
+  item("clip reply","write a reply to it");
+
+  head("Screen and apps (accessibility)");
+  item("open APP","open an app or Settings");
+  item("tap NAME","tap a button by its label");
+  item("type TEXT","type into the focused field");
+  item("scroll up / scroll down","scroll the screen");
+
+  head("Phone control (Shizuku)");
+  item("back, home, recents","press those buttons");
+  item("key enter / volup / voldown / mute / power / menu / play / next / prev","press a key");
+  item("tap X Y","real tap at screen position X, Y");
+  item("swipe up / down / left / right","real swipe");
+  item("swipe X1 Y1 X2 Y2","swipe between two points");
+  item("stype TEXT","type text with the real keyboard path");
+  item("launch APP","open an app by name or package");
+  item("force stop APP","stop an app (also: kill APP)");
+  item("goto URL","open a web link (http or https)");
+  item("fg","which app is on screen");
+  item("shot","save a screenshot to Pictures");
+  item("look QUESTION","screenshot, then the slime answers about it");
+
+  head("Phone settings (Shizuku)");
+  item("brightness 0-100 / brightness auto","screen brightness");
+  item("wifi on / off","Wi-Fi");
+  item("data on / off","mobile data");
+  item("bluetooth on / off","Bluetooth");
+  item("airplane on / off","airplane mode");
+  item("rotate on / off","auto-rotate");
+  item("dnd on / off","do not disturb");
+  item("dark mode on / off","dark theme");
+  item("volume 0-15","media volume");
+  item("timeout SECONDS","screen timeout");
+  item("screen off / screen on","turn the screen off or on");
+
+  head("Power tools");
+  item("model / model NAME","show or change the AI model (default openai/gpt-4o-mini)");
+  item("diagnose","check my permissions, Termux and Shizuku and tell you the exact fix");
+  item("grant self","give SlimeDroid its permissions and switch its eyes back on");
+  item("shizuku","test the Shizuku connection");
+  item("autoheal on / off","re-enable its eyes after a reboot");
+  item("vision model NAME","which AI looks at screenshots");
+  item("sh COMMAND","run a command on the phone (Shizuku)");
+  item("term COMMAND","run a command in Termux");
+
+  head("AI suggestions");
+  text("If you ask the slime to do something on the phone, it may suggest one action and wait. Reply yes or no.",13f,"#D6DBDF",false,2);
+  setContentView(sv);
+ }
+ TextView text(String s,float size,String color,boolean bold,int topDp){
+  TextView t=new TextView(this); t.setText(s); t.setTextSize(size); t.setTextColor(Color.parseColor(color));
+  if(bold) t.setTypeface(Typeface.DEFAULT_BOLD);
+  t.setPadding(0,(int)(topDp*d),0,(int)(2*d)); col.addView(t); return t;
+ }
+ void head(String s){ text(s,16f,"#5DADE2",true,18); }
+ void item(String cmd,String desc){
+  TextView t=new TextView(this);
+  t.setText(Html.fromHtml("<b>"+cmd+"</b><br/>"+desc));
+  t.setTextSize(13f); t.setTextColor(Color.parseColor("#E5E8E8"));
+  t.setPadding(0,(int)(6*d),0,(int)(2*d)); col.addView(t);
+ }
+}

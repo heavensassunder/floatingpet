@@ -1,0 +1,22 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    compileSdk 34
+    namespace 'com.slime'
+    defaultConfig {
+        applicationId "com.slime"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+    compileOptions {
+        sourceCompatibility 1_8
+        targetCompatibility 1_8
+    }
+}
+
+dependencies {
+}

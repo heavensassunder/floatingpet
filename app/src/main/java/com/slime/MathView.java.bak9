@@ -1,0 +1,40 @@
+package com.slime;
+import android.content.Context; import android.graphics.Color; import android.graphics.drawable.Drawable;
+import android.view.View; import android.view.ViewGroup; import android.webkit.JavascriptInterface; import android.webkit.WebSettings; import android.webkit.WebView; import android.widget.LinearLayout;
+import java.util.regex.Pattern;
+// Messages with LaTeX are drawn by KaTeX inside a small WebView (needs internet the first time; offline it shows the raw text).
+public class MathView {
+ static final Pattern P=Pattern.compile("\\$\\$[\\s\\S]+?\\$\\$|\\\\\\[[\\s\\S]+?\\\\\\]|\\\\\\([\\s\\S]+?\\\\\\)|\\$[^$\\n]*[\\\\^_{][^$\\n]*\\$");
+ static boolean hasMath(String t){ return t!=null&&P.matcher(t).find(); }
+ static String esc(String s){ return s.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;"); }
+ static class Bridge{
+  final WebView w; final float d;
+  Bridge(WebView w,float d){ this.w=w; this.d=d; }
+  @JavascriptInterface public void h(final int px){
+   w.post(new Runnable(){ public void run(){ try{ ViewGroup.LayoutParams lp=w.getLayoutParams(); lp.height=(int)(px*d+0.5f); w.setLayoutParams(lp); }catch(Exception e){} }});
+  }
+ }
+ static View card(Context c,String text,boolean isUser,Drawable bg){
+  try{
+   float d=c.getResources().getDisplayMetrics().density;
+   LinearLayout card=new LinearLayout(c); card.setOrientation(LinearLayout.VERTICAL); card.setPadding(12,8,12,8); card.setBackground(bg);
+   LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT); lp.setMargins(0,4,0,4); card.setLayoutParams(lp);
+   WebView wv=new WebView(c);
+   WebSettings st=wv.getSettings(); st.setJavaScriptEnabled(true);
+   wv.setBackgroundColor(Color.TRANSPARENT); wv.setVerticalScrollBarEnabled(false); wv.setHorizontalScrollBarEnabled(false);
+   wv.addJavascriptInterface(new Bridge(wv,d),"Android");
+   String col=isUser?"#ffffff":"#1B2631";
+   String html="<html><head><meta name='viewport' content='width=device-width,initial-scale=1'>"
+    +"<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css'>"
+    +"<script defer src='https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js'></script>"
+    +"<script defer src='https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js'></script>"
+    +"<style>body{margin:0;padding:0;font-family:sans-serif;font-size:13px;line-height:1.35;color:"+col+";background:transparent;white-space:pre-wrap;word-wrap:break-word}.katex{font-size:1.05em}.katex-display{margin:6px 0;overflow-x:auto;overflow-y:hidden}</style></head>"
+    +"<body><div id='m'>"+esc(text)+"</div>"
+    +"<script>function rep(){try{Android.h(Math.ceil(document.getElementById('m').getBoundingClientRect().height)+2);}catch(e){}}"
+    +"window.addEventListener('load',function(){try{renderMathInElement(document.getElementById('m'),{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\\\[',right:'\\\\]',display:true},{left:'\\\\(',right:'\\\\)',display:false},{left:'$',right:'$',display:false}],throwOnError:false});}catch(e){}rep();setTimeout(rep,400);setTimeout(rep,1500);});</script></body></html>";
+   card.addView(wv,new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,(int)(40*d)));
+   wv.loadDataWithBaseURL("https://cdn.jsdelivr.net/",html,"text/html","utf-8",null);
+   return card;
+  }catch(Throwable e){ return null; }
+ }
+}
