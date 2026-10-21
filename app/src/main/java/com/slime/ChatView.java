@@ -5,7 +5,7 @@ import android.text.SpannableStringBuilder; import android.text.Spanned; import 
 import android.view.*; import android.view.inputmethod.EditorInfo; import android.view.inputmethod.InputMethodManager; import android.widget.*;
 import java.util.regex.Matcher; import java.util.regex.Pattern;
 public class ChatView extends LinearLayout {
- public EditText input; public Button send,close,historyBtn,eyesBtn,voiceBtn;
+ public EditText input; public Button send,close,historyBtn,eyesBtn,voiceBtn,micBtn;
  public Button feedBtn,playBtn,clipBtn,catchBtn,muteBtn,statusBtn,cmdBtn;
  public LinearLayout messagesContainer; public ScrollView scroll;
  public boolean kb=false; public Runnable onKeyboard; long kbAt=0;
@@ -22,9 +22,10 @@ public class ChatView extends LinearLayout {
   input.setImeOptions(EditorInfo.IME_ACTION_SEND);
   LinearLayout.LayoutParams ilp=new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT); ilp.setMargins(0,8,0,0); input.setLayoutParams(ilp);
   send=mk(c,"Send","#5DADE2",10f,14,6); eyesBtn=mk(c,"See","#48C9B0",10f,10,6); voiceBtn=mk(c,"TTS","#AF7AC5",10f,10,6);
+  micBtn=mk(c,"Mic","#E67E22",10f,10,6);
   historyBtn=mk(c,"Hist","#85929E",10f,10,6); close=mk(c,"X","#E74C3C",10f,12,6);
   LinearLayout row=new LinearLayout(c); row.setOrientation(HORIZONTAL); row.setGravity(Gravity.CENTER_VERTICAL);
-  row.addView(send); row.addView(eyesBtn); row.addView(voiceBtn); row.addView(historyBtn); row.addView(close);
+  row.addView(send); row.addView(eyesBtn); row.addView(voiceBtn); row.addView(micBtn); row.addView(historyBtn); row.addView(close);
   HorizontalScrollView rowScroll=new HorizontalScrollView(c); rowScroll.setHorizontalScrollBarEnabled(false); rowScroll.setPadding(0,8,0,0); rowScroll.addView(row);
   feedBtn=mk(c,"Feed","#F5B041",9f,9,5); playBtn=mk(c,"Play","#5DADE2",9f,9,5); clipBtn=mk(c,"Clip","#48C9B0",9f,9,5);
   catchBtn=mk(c,"Catch up","#AF7AC5",9f,9,5); muteBtn=mk(c,"Shh","#85929E",9f,9,5); statusBtn=mk(c,"Status","#5D6D7E",9f,9,5); cmdBtn=mk(c,"Cmds","#AF7AC5",9f,9,5);

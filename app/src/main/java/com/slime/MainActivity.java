@@ -27,6 +27,8 @@ public class MainActivity extends Activity {
    try{ open(new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,Uri.parse("package:"+getPackageName()))); }
    catch(Exception e){ open(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)); }
   }});
+  btn("5. Allow microphone (so you can talk instead of type)","#E67E22",new Runnable(){ public void run(){ requestMic(); }});
+  requestMic();
 
   head("Step 2: OpenRouter keys (free)");
   note("Get a free key at openrouter.ai/keys. You can add more than one: when a key runs out I switch to the next.");
@@ -66,6 +68,14 @@ public class MainActivity extends Activity {
   refresh();
  }
  String tick(boolean ok){ return ok?"\u2713 ":"\u2717 "; }
+ void requestMic(){
+  try{
+   ArrayList<String> need=new ArrayList<String>();
+   if(checkSelfPermission("android.permission.RECORD_AUDIO")!=android.content.pm.PackageManager.PERMISSION_GRANTED) need.add("android.permission.RECORD_AUDIO");
+   if(android.os.Build.VERSION.SDK_INT>=33&&checkSelfPermission("android.permission.POST_NOTIFICATIONS")!=android.content.pm.PackageManager.PERMISSION_GRANTED) need.add("android.permission.POST_NOTIFICATIONS");
+   if(!need.isEmpty()) requestPermissions(need.toArray(new String[need.size()]),11);
+  }catch(Exception e){ L.w("MainActivity",e); }
+ }
  void refresh(){
   try{
    StringBuilder sb=new StringBuilder();
@@ -76,6 +86,8 @@ public class MainActivity extends Activity {
    sb.append(tick(nl!=null&&nl.contains(getPackageName()))).append("notification access\n");
    boolean bat=false; try{ bat=((PowerManager)getSystemService(POWER_SERVICE)).isIgnoringBatteryOptimizations(getPackageName()); }catch(Exception e){ L.w("MainActivity",e); }
    sb.append(tick(bat)).append("battery unrestricted\n");
+   boolean mic=false; try{ mic=checkSelfPermission("android.permission.RECORD_AUDIO")==android.content.pm.PackageManager.PERMISSION_GRANTED; }catch(Exception e){ L.w("MainActivity",e); }
+   sb.append(tick(mic)).append("microphone (voice chat)\n");
    int nk=Keys.all(sp).size();
    sb.append(tick(nk>0)).append("OpenRouter key saved (").append(nk).append(")\n");
    sb.append(tick(MainService.instance!=null)).append("slime is running\n");

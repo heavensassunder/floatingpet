@@ -2,7 +2,6 @@ package com.slime;
 import android.media.MediaPlayer;
 import android.os.Handler; import android.os.Looper;
 import android.speech.tts.TextToSpeech;
-import android.speech.tts.Voice;
 import java.io.File; import java.io.FileOutputStream; import java.io.InputStream; import java.io.OutputStream;
 import java.net.HttpURLConnection; import java.net.URL; import java.net.URLEncoder;
 import java.util.ArrayList; import java.util.Collections; import java.util.HashSet; import java.util.Locale; import java.util.Set;
@@ -32,7 +31,7 @@ class Voice {
    try{
     tts.setLanguage(Locale.US);
     String vn=s.sp.getString("voiceName","");
-    if(!vn.isEmpty()){ try{ Set<Voice> all=tts.getVoices(); if(all!=null){ for(Voice vc:all){ if(vc.getName().equals(vn)){ tts.setVoice(vc); break; } } } }catch(Exception e){ L.w("Voice",e); } }
+    if(!vn.isEmpty()){ try{ Set<android.speech.tts.Voice> all=tts.getVoices(); if(all!=null){ for(android.speech.tts.Voice vc:all){ if(vc.getName().equals(vn)){ tts.setVoice(vc); break; } } } }catch(Exception e){ L.w("Voice",e); } }
     tts.setSpeechRate(s.sp.getFloat("voiceRate",1f)); tts.setPitch(s.sp.getFloat("voicePitch",1f));
    }catch(Exception e){ L.w("Voice",e); }
    if(pending!=null){ String p=pending; pending=null; speak(p); }
@@ -181,7 +180,7 @@ class Voice {
   if(low.startsWith("voice ")){
    String arg=low.substring(6).trim();
    if(tts==null||!ready){ s.local("local engine still waking up, try again in a second",false); return true; }
-   Voice pick=findVoice(arg);
+   android.speech.tts.Voice pick=findVoice(arg);
    if(pick==null) s.local("no voice matching that. say voice list for options",false);
    else { tts.setVoice(pick); s.sp.edit().putString("voiceName",pick.getName()).apply(); s.local("local voice: "+pick.getName(),false); }
    return true;
@@ -209,23 +208,23 @@ class Voice {
  }
  private void listVoices(){
   if(tts==null||!ready){ s.local("local engine still waking up, try again in a second",false); return; }
-  Set<Voice> all=tts.getVoices();
-  ArrayList<Voice> en=new ArrayList<Voice>();
+  Set<android.speech.tts.Voice> all=tts.getVoices();
+  ArrayList<android.speech.tts.Voice> en=new ArrayList<android.speech.tts.Voice>();
   if(all!=null){ for(Voice v:all){ if(v.getLocale()!=null&&"en".equals(v.getLocale().getLanguage())&&!v.isNetworkConnectionRequired()) en.add(v); } }
   if(en.isEmpty()){ s.local("no offline English voices found; the cloud voice still works",false); return; }
   StringBuilder sb=new StringBuilder("local voices (pick with voice N or name):\n");
   for(int i=0;i<Math.min(20,en.size());i++) sb.append(i+1).append(". ").append(en.get(i).getName()).append('\n');
   s.showChat(); s.local(sb.toString(),false);
  }
- private Voice findVoice(String arg){
+ private android.speech.tts.Voice findVoice(String arg){
   if(tts==null) return null;
-  Set<Voice> all=tts.getVoices(); if(all==null) return null;
+  Set<android.speech.tts.Voice> all=tts.getVoices(); if(all==null) return null;
   if(arg.matches("\\d+")){
-   ArrayList<Voice> en=new ArrayList<Voice>();
-   for(Voice v:all){ if(v.getLocale()!=null&&"en".equals(v.getLocale().getLanguage())&&!v.isNetworkConnectionRequired()) en.add(v); }
+   ArrayList<android.speech.tts.Voice> en=new ArrayList<android.speech.tts.Voice>();
+   for(android.speech.tts.Voice v:all){ if(v.getLocale()!=null&&"en".equals(v.getLocale().getLanguage())&&!v.isNetworkConnectionRequired()) en.add(v); }
    int i=Integer.parseInt(arg)-1; return (i>=0&&i<en.size())?en.get(i):null;
   }
-  for(Voice v:all){ if(v.getName().toLowerCase().contains(arg)) return v; }
+  for(android.speech.tts.Voice v:all){ if(v.getName().toLowerCase().contains(arg)) return v; }
   return null;
  }
 }

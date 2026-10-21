@@ -59,8 +59,8 @@ class DeviceEvents {
    else if(a.equals(Intent.ACTION_BATTERY_LOW)){ s.react("battery low! "+s.batteryLevel()+"%",5,6000); }
    else if(a.equals(Intent.ACTION_HEADSET_PLUG)){ int st=i.getIntExtra("state",0); if(st==1) s.react(Lines.pick(Lines.HEAD_ON),7,4000); else s.react(Lines.pick(Lines.HEAD_OFF),0,3000); }
    else if(a.equals(Intent.ACTION_USER_PRESENT)){ onUnlock(); }
-   else if(a.equals(Intent.ACTION_SCREEN_ON)){ startSensor(); }
-   else if(a.equals(Intent.ACTION_SCREEN_OFF)){ stopSensor(); s.sp.edit().putLong("lastSeen",System.currentTimeMillis()).apply(); }
+   else if(a.equals(Intent.ACTION_SCREEN_ON)){ startSensor(); if(s.ear!=null) s.ear.onScreenOn(); }
+   else if(a.equals(Intent.ACTION_SCREEN_OFF)){ stopSensor(); if(s.ear!=null) s.ear.onScreenOff(); s.sp.edit().putLong("lastSeen",System.currentTimeMillis()).apply(); }
   }};
   IntentFilter f=new IntentFilter();
   f.addAction(Intent.ACTION_POWER_CONNECTED); f.addAction(Intent.ACTION_POWER_DISCONNECTED); f.addAction(Intent.ACTION_BATTERY_LOW);

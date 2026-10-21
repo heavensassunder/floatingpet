@@ -70,6 +70,18 @@ public class CommandsActivity extends Activity {
   item("peek on / peek off","allow or stop random peeking");
   item("peek more / peek less","how often it peeks");
 
+  head("Voice and listening");
+  item("Mic button / listen on","tap Mic for one utterance, or say listen on for hands-free mode while the screen is on");
+  item("listen off / listen status","stop continuous listening, or check its state");
+  item("listen language en / sw","recognition language (English US or Swahili KE)");
+  item("tts on / tts off","let the slime speak replies aloud (also the TTS button)");
+  item("tts mode auto / cloud / local","neural cloud voice with fallback, force cloud, or offline engine only");
+  item("tts test","hear the current voice");
+  item("tts cloud voices / tts cloud voice NAME","list or pick a neural voice (e.g. Brian, Amy, Joanna)");
+  item("tts engines / tts engine N","list or switch the on-device speech engine");
+  item("voice list / voice N","list or pick an installed on-device voice");
+  item("tts speed N / tts pitch N","0.5 to 2.0 adjustments");
+
   head("Clipboard");
   item("clip","explain what you copied");
   item("clip summarize","short summary of it");
@@ -110,7 +122,7 @@ public class CommandsActivity extends Activity {
   item("screen off / screen on","turn the screen off or on");
 
   head("Power tools");
-  item("model / model NAME","show or change the AI model (default openai/gpt-4o-mini)");
+  item("model / model NAME","show or pin the AI model; by default free :free models rotate automatically");
   item("diagnose","check my permissions, Termux and Shizuku and tell you the exact fix");
   item("grant self","give SlimeDroid its permissions and switch its eyes back on");
   item("shizuku","test the Shizuku connection");

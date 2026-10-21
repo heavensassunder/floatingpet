@@ -18,12 +18,13 @@ public class MainService extends Service {
  String[] moods={"Happy!","Sleepy","Mad","Love","Hungry","Cry","Wow","Wink","Dead"};
  MemoryManager mem; ActionExecutor executor; Voice voice; Notifs notifs;
  Handler h=new Handler(); Random rnd=new Random(); SharedPreferences sp; Needs needs;
- Wander wander; Clipboard clipboard; DeviceEvents device;
+ Wander wander; Clipboard clipboard; DeviceEvents device; Ear ear;
 
  Runnable lifeTick=new Runnable(){ public void run(){ try{ life(); }catch(Exception e){ L.w("MainService",e); } h.postDelayed(this,30000); }};
  @Override public void onCreate(){
   super.onCreate(); sp=getSharedPreferences("slime",MODE_PRIVATE);
-  OpenRouterClient.prefs=sp; OpenRouterClient.model=sp.getString("model",OpenRouterClient.MODEL); FreeModels.maybeRefresh(sp); mem=new MemoryManager(this); brain=new Brain(this); Modes.load(this); Pouch.load(this); Evo.init(this); executor=new ActionExecutor(this); voice=new Voice(this); needs=new Needs(sp);
+  OpenRouterClient.prefs=sp; OpenRouterClient.model=sp.getString("model",OpenRouterClient.MODEL); FreeModels.maybeRefresh(sp); mem=new MemoryManager(this); brain=new Brain(this); Modes.load(this); Pouch.load(this); Evo.init(this); executor=new ActionExecutor(this); voice=new Voice(this); ear=new Ear(this);
+  voice.setIdleListener(new Runnable(){ public void run(){ ear.resumeIfListening(); }}); needs=new Needs(sp);
   wm=(WindowManager)getSystemService(WINDOW_SERVICE);
   slimeView=new SlimeView(this);
   p1=new WindowManager.LayoutParams(SW,SH,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
@@ -43,6 +44,7 @@ public class MainService extends Service {
   chatView.close.setOnClickListener(new View.OnClickListener(){ public void onClick(View v){ chatView.setVisibility(View.GONE); }});
   chatView.historyBtn.setOnClickListener(new View.OnClickListener(){ public void onClick(View v){ Intent i=new Intent(MainService.this,HistoryActivity.class); i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); startActivity(i); }});
   chatView.voiceBtn.setOnClickListener(new View.OnClickListener(){ public void onClick(View v){ boolean on=!voice.enabled(); voice.setEnabled(on); Toast.makeText(MainService.this,on?"VOICE ON":"VOICE OFF",Toast.LENGTH_SHORT).show(); }});
+  chatView.micBtn.setOnClickListener(new View.OnClickListener(){ public void onClick(View v){ ear.tapToTalk(); }});
   chatView.eyesBtn.setOnClickListener(new View.OnClickListener(){ public void onClick(View v){
    if(EyeService.instance==null){ Toast.makeText(MainService.this,"Enable Accessibility!",Toast.LENGTH_SHORT).show(); return; }
    chatView.setVisibility(View.GONE);
@@ -90,6 +92,7 @@ public class MainService extends Service {
   device=new DeviceEvents(this); device.start();
   clipboard=new Clipboard(this); clipboard.attach();
   h.postDelayed(lifeTick,30000); wander.start();
+  if(sp.getBoolean("listenOn",false)) h.postDelayed(new Runnable(){ public void run(){ ear.startContinuous(); }},1500);
   if(!as) h.postDelayed(new Runnable(){ public void run(){ slimeView.say("I'm awake!"); slimeView.bounceAnim(); }},1200);
  }
 
@@ -237,6 +240,11 @@ public class MainService extends Service {
  void handle(String txt){
   final String t=txt.trim(); if(t.isEmpty()) return;
   addChat("You: "+t,true); chatView.input.setText(""); chatView.hideKeyboard();
+  dispatch(t);
+ }
+ // Spoken utterances already logged their "You:" bubble in Ear; they take the same path as typed text.
+ void handleHeard(String t){ dispatch(t); }
+ private void dispatch(final String t){
   String low=t.toLowerCase(); lastTouch=System.currentTimeMillis();
   needs.cheer(5f);
   if(localCommand(low)) return;
@@ -244,6 +252,7 @@ public class MainService extends Service {
   if(extra!=null&&extra.handle(t,low)) return;
   if(Modes.handle(this,t,low)||Pouch.handle(this,t,low)||Evo.handle(this,low)||(brain!=null&&brain.handle(t,low))) return;
   if(vibe!=null&&vibe.handle(t,low)) return;
+  if(ear.handle(t,low)) return;
   if(voice.handle(t,low)) return;
   if(clipboard.isCmd(low)){ clipboard.task(t,low); return; }
   if(low.contains("catch me up")||low.contains("what did i miss")||low.equals("pings")||low.equals("notifs")||low.equals("notifications")){ notifs.catchUp(t); return; }
@@ -308,6 +317,7 @@ public class MainService extends Service {
   try{ h.removeCallbacksAndMessages(null); }catch(Exception e){ L.w("MainService",e); }
   try{ if(wander!=null) wander.destroy(); }catch(Exception e){ L.w("MainService",e); }
   try{ if(device!=null) device.destroy(); }catch(Exception e){ L.w("MainService",e); }
+  try{ if(ear!=null) ear.destroy(); }catch(Exception e){ L.w("MainService",e); }
   try{ if(clipboard!=null) clipboard.detach(); }catch(Exception e){ L.w("MainService",e); }
   try{ if(voice!=null) voice.destroy(); }catch(Exception e){ L.w("MainService",e); }
   try{ wm.removeView(slimeView); }catch(Exception e){ L.w("MainService",e); }
