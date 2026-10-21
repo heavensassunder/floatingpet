@@ -3,11 +3,10 @@ import android.app.Service;
 import android.content.Intent; import android.content.IntentFilter; import android.content.SharedPreferences;
 import android.graphics.PixelFormat;
 import android.os.BatteryManager; import android.os.Handler; import android.os.IBinder; import android.os.PowerManager;
-import android.speech.tts.TextToSpeech;
 import android.view.*; import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.Toast;
 import java.util.Calendar; import java.util.Locale; import java.util.Random;
-public class MainService extends Service implements TextToSpeech.OnInitListener {
+public class MainService extends Service {
  public static MainService instance; Phone phone; Guard guard; Extra extra; Brain brain; Vibe vibe;
  // window is 3/4 of the old size (was 260x190)
  static final int SW=195, SH=143;
@@ -17,14 +16,14 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
  long lastTap=0,lastTouch=0,lastPoke=0,lastTalk=0,eventMoodUntil=0;
  int pokeCount=0;
  String[] moods={"Happy!","Sleepy","Mad","Love","Hungry","Cry","Wow","Wink","Dead"};
- MemoryManager mem; ActionExecutor executor; TextToSpeech tts; boolean ttsOn=false; Notifs notifs;
+ MemoryManager mem; ActionExecutor executor; Voice voice; Notifs notifs;
  Handler h=new Handler(); Random rnd=new Random(); SharedPreferences sp; Needs needs;
  Wander wander; Clipboard clipboard; DeviceEvents device;
 
  Runnable lifeTick=new Runnable(){ public void run(){ try{ life(); }catch(Exception e){ L.w("MainService",e); } h.postDelayed(this,30000); }};
  @Override public void onCreate(){
   super.onCreate(); sp=getSharedPreferences("slime",MODE_PRIVATE);
-  OpenRouterClient.prefs=sp; OpenRouterClient.model=sp.getString("model",OpenRouterClient.MODEL); FreeModels.maybeRefresh(sp); mem=new MemoryManager(this); brain=new Brain(this); Modes.load(this); Pouch.load(this); Evo.init(this); executor=new ActionExecutor(this); tts=new TextToSpeech(this,this); needs=new Needs(sp);
+  OpenRouterClient.prefs=sp; OpenRouterClient.model=sp.getString("model",OpenRouterClient.MODEL); FreeModels.maybeRefresh(sp); mem=new MemoryManager(this); brain=new Brain(this); Modes.load(this); Pouch.load(this); Evo.init(this); executor=new ActionExecutor(this); voice=new Voice(this); needs=new Needs(sp);
   wm=(WindowManager)getSystemService(WINDOW_SERVICE);
   slimeView=new SlimeView(this);
   p1=new WindowManager.LayoutParams(SW,SH,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
@@ -43,7 +42,7 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
 
   chatView.close.setOnClickListener(new View.OnClickListener(){ public void onClick(View v){ chatView.setVisibility(View.GONE); }});
   chatView.historyBtn.setOnClickListener(new View.OnClickListener(){ public void onClick(View v){ Intent i=new Intent(MainService.this,HistoryActivity.class); i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); startActivity(i); }});
-  chatView.voiceBtn.setOnClickListener(new View.OnClickListener(){ public void onClick(View v){ ttsOn=!ttsOn; Toast.makeText(MainService.this,ttsOn?"TTS ON":"TTS OFF",Toast.LENGTH_SHORT).show(); }});
+  chatView.voiceBtn.setOnClickListener(new View.OnClickListener(){ public void onClick(View v){ boolean on=!voice.enabled(); voice.setEnabled(on); Toast.makeText(MainService.this,on?"VOICE ON":"VOICE OFF",Toast.LENGTH_SHORT).show(); }});
   chatView.eyesBtn.setOnClickListener(new View.OnClickListener(){ public void onClick(View v){
    if(EyeService.instance==null){ Toast.makeText(MainService.this,"Enable Accessibility!",Toast.LENGTH_SHORT).show(); return; }
    chatView.setVisibility(View.GONE);
@@ -131,7 +130,7 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
  void speak(String t){
   if(t==null) return; t=t.trim(); if(t.isEmpty()) return;
   slimeView.say(t); slimeView.bounceAnim(); addChat("Slime: "+t,false);
-  if(ttsOn){ try{ tts.speak(MathText.speakable(t),TextToSpeech.QUEUE_FLUSH,null,null); }catch(Exception e){ L.w("MainService",e); } }
+  voice.speak(t);
  }
  void moodEvent(int m,long ms){ eventMoodUntil=System.currentTimeMillis()+ms; slimeView.setMood(m); }
  void react(String line,int m,long ms){ moodEvent(m,ms); slimeView.say(line); slimeView.bounceAnim(); }
@@ -245,6 +244,7 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
   if(extra!=null&&extra.handle(t,low)) return;
   if(Modes.handle(this,t,low)||Pouch.handle(this,t,low)||Evo.handle(this,low)||(brain!=null&&brain.handle(t,low))) return;
   if(vibe!=null&&vibe.handle(t,low)) return;
+  if(voice.handle(t,low)) return;
   if(clipboard.isCmd(low)){ clipboard.task(t,low); return; }
   if(low.contains("catch me up")||low.contains("what did i miss")||low.equals("pings")||low.equals("notifs")||low.equals("notifications")){ notifs.catchUp(t); return; }
   if(brain!=null) brain.observe(t); Evo.count(this,low);
@@ -297,12 +297,11 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
   int m=moodFor(clean); moodEvent(m==0?needs.mood(asleep()):m,8000);
   slimeView.say(clean); slimeView.bounceAnim();
   addChat("Slime: "+clean,false);
-  if(ttsOn){ try{ tts.speak(MathText.speakable(clean),TextToSpeech.QUEUE_FLUSH,null,null); }catch(Exception e){ L.w("MainService",e); } }
+  voice.speak(clean);
   mem.saveChat(user,clean);
   if(openTarget!=null&&!openTarget.isEmpty()){ addChat("Slime: "+executor.run("open",openTarget),false); }
  }
 
- @Override public void onInit(int s){ if(s==TextToSpeech.SUCCESS) tts.setLanguage(Locale.US); }
  @Override public void onDestroy(){
   super.onDestroy();
   instance=null;
@@ -310,7 +309,7 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
   try{ if(wander!=null) wander.destroy(); }catch(Exception e){ L.w("MainService",e); }
   try{ if(device!=null) device.destroy(); }catch(Exception e){ L.w("MainService",e); }
   try{ if(clipboard!=null) clipboard.detach(); }catch(Exception e){ L.w("MainService",e); }
-  try{ if(tts!=null) tts.shutdown(); }catch(Exception e){ L.w("MainService",e); }
+  try{ if(voice!=null) voice.destroy(); }catch(Exception e){ L.w("MainService",e); }
   try{ wm.removeView(slimeView); }catch(Exception e){ L.w("MainService",e); }
   try{ wm.removeView(chatView); }catch(Exception e){ L.w("MainService",e); }
  }
