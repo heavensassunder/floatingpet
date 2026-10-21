@@ -75,6 +75,7 @@ public class CommandsActivity extends Activity {
   item("listen off / listen status","stop continuous listening, or check its state");
   item("listen language en / sw","recognition language (English US or Swahili KE)");
   item("tts on / tts off","let the slime speak replies aloud (also the TTS button)");
+  item("tts status / tts cloud test","show voice mode and last cloud error, or force a neural-voice test");
   item("tts mode auto / cloud / local","neural cloud voice with fallback, force cloud, or offline engine only");
   item("tts test","hear the current voice");
   item("tts cloud voices / tts cloud voice NAME","list or pick a neural voice (e.g. Brian, Amy, Joanna)");

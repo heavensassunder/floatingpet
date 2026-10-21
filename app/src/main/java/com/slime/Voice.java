@@ -19,6 +19,7 @@ class Voice {
  TextToSpeech tts; boolean ready;
  MediaPlayer player; final ArrayList<File> queue=new ArrayList<File>();
  boolean speaking; Runnable idleListener; String pending;
+ String lastCloudError; long lastCloudErrorAt, lastWarnAt; boolean cloudEverWorked;
  Voice(MainService s){ this.s=s; initLocal(s.sp.getString("voiceEngine","")); }
 
  // ---------- local engine ----------
@@ -100,11 +101,18 @@ class Voice {
      files.add(f);
     }
     final ArrayList<File> got=files;
-    h.post(new Runnable(){ public void run(){ playQueue(got); }});
+    h.post(new Runnable(){ public void run(){ cloudEverWorked=true; lastCloudError=null; playQueue(got); }});
    }catch(Exception e){
     L.w("Voice",e);
+    lastCloudError=e.getClass().getSimpleName()+": "+e.getMessage(); lastCloudErrorAt=System.currentTimeMillis();
     for(File f:files){ try{ f.delete(); }catch(Exception x){ L.w("Voice",x); } }
-    if(fallbackLocal) h.post(new Runnable(){ public void run(){ localSpeak(text); }});
+    if(fallbackLocal){
+     h.post(new Runnable(){ public void run(){
+      long now=System.currentTimeMillis();
+      if(now-lastWarnAt>60000){ lastWarnAt=now; s.local("cloud voice unavailable ("+lastCloudError+"), using the local voice for now. say 'tts cloud test' to retry.",false); }
+      localSpeak(text);
+     }});
+    }
     else h.post(new Runnable(){ public void run(){ markSpeaking(false); }});
    }
   }}).start();
@@ -161,6 +169,12 @@ class Voice {
    return true;
   }
   if(low.equals("tts test")){ setEnabled(true); s.speak("hey, it's me, slime. this is my voice."); return true; }
+  if(low.equals("tts cloud test")){ testCloud(); return true; }
+  if(low.equals("tts status")){
+   StringBuilder sb=new StringBuilder("voice enabled: "+enabled()+"\nmode: "+mode()+"\ncloud voice: "+s.sp.getString("cloudVoice",DEFAULT_CLOUD)+"\ncloud ever worked: "+(cloudEverWorked?"yes":"not yet")+"\nlocal engine ready: "+ready);
+   if(lastCloudError!=null){ long ago=(System.currentTimeMillis()-lastCloudErrorAt)/1000; sb.append("\nlast cloud error: ").append(lastCloudError).append(" (").append(ago).append("s ago)"); }
+   s.showChat(); s.local(sb.toString(),false); return true;
+  }
   if(low.startsWith("tts cloud voice ")||low.startsWith("tts voice ")){
    String name=t.substring(low.startsWith("tts cloud")?16:10).trim();
    if(CLOUD_VOICES.contains(name)){ s.sp.edit().putString("cloudVoice",name).apply(); s.local("cloud voice: "+name+". say tts test to hear it.",false); }
@@ -190,6 +204,40 @@ class Voice {
   return false;
  }
  private Float num(String x){ try{ return Float.parseFloat(x.trim()); }catch(Exception e){ return null; } }
+ // One forced cloud fetch so the user can see exactly why the neural voice is or isn't working.
+ void testCloud(){
+  setEnabled(true);
+  s.local("testing the cloud voice...",false);
+  new Thread(new Runnable(){ public void run(){
+   final String[] out=new String[1]; File f=null;
+   try{
+    String voice=s.sp.getString("cloudVoice",DEFAULT_CLOUD);
+    if(!CLOUD_VOICES.contains(voice)) voice=DEFAULT_CLOUD;
+    String u="https://api.streamelements.com/kappa/v2/speech?voice="+URLEncoder.encode(voice,"UTF-8")+"&text="+URLEncoder.encode("cloud voice test, one two three","UTF-8");
+    HttpURLConnection c=(HttpURLConnection)new URL(u).openConnection();
+    c.setConnectTimeout(12000); c.setReadTimeout(20000); c.setRequestProperty("Accept","audio/mpeg");
+    int code=c.getResponseCode();
+    if(code!=200){ out[0]="cloud voice failed: HTTP "+code; lastCloudError="http "+code; lastCloudErrorAt=System.currentTimeMillis(); }
+    else {
+     f=File.createTempFile("slime_tts_test_",".mp3",s.getCacheDir()); f.deleteOnExit();
+     InputStream in=c.getInputStream(); OutputStream out2=new FileOutputStream(f);
+     byte[] buf=new byte[4096]; int n; while((n=in.read(buf))>0) out2.write(buf,0,n); out2.close(); in.close();
+     final File mp3=f;
+     h.post(new Runnable(){ public void run(){
+      cloudEverWorked=true; lastCloudError=null;
+      queue.add(mp3); playNext();
+      s.local("cloud voice works - that was "+s.sp.getString("cloudVoice",DEFAULT_CLOUD)+" speaking.",false);
+     }});
+     return;
+    }
+   }catch(Exception e){
+    L.w("Voice",e); lastCloudError=e.getClass().getSimpleName()+": "+e.getMessage(); lastCloudErrorAt=System.currentTimeMillis();
+    out[0]="cloud voice failed: "+lastCloudError;
+   }
+   final String msg=out[0];
+   h.post(new Runnable(){ public void run(){ s.local(msg+". say 'tts mode local' to stay offline, or check your connection.",false); }});
+  }}).start();
+ }
  private void listEngines(){
   if(tts==null){ s.local("engine not ready yet",false); return; }
   ArrayList<TextToSpeech.EngineInfo> es=new ArrayList<TextToSpeech.EngineInfo>(tts.getEngines());

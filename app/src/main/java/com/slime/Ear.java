@@ -9,19 +9,45 @@ import java.util.ArrayList;
 class Ear {
  static final int NOTIF_ID=4242; static final String CHANNEL="slime_ear";
  final MainService s; final Handler h=new Handler(Looper.getMainLooper());
- SpeechRecognizer sr; boolean continuous, active; int backoff; long lastRestart;
+ SpeechRecognizer sr; boolean continuous, active, fgs; int backoff; long lastRestart;
+ String lastError; long lastErrorAt, lastErrorShown;
  private Runnable retry;
  Ear(MainService s){ this.s=s; }
 
  private boolean permitted(){ try{ return s.checkSelfPermission("android.permission.RECORD_AUDIO")==PackageManager.PERMISSION_GRANTED; }catch(Exception e){ L.w("Ear",e); return false; } }
  private boolean available(){ try{ return SpeechRecognizer.isRecognitionAvailable(s); }catch(Exception e){ L.w("Ear",e); return false; } }
  String lang(){ return "sw".equals(s.sp.getString("listenLang","en"))?"sw-KE":"en-US"; }
+ static String errorName(int code){
+  switch(code){
+   case SpeechRecognizer.ERROR_NETWORK_TIMEOUT: return "network timeout";
+   case SpeechRecognizer.ERROR_NETWORK: return "network error (check internet)";
+   case SpeechRecognizer.ERROR_AUDIO: return "audio capture failed (mic busy or blocked)";
+   case SpeechRecognizer.ERROR_SERVER: return "speech service server error";
+   case SpeechRecognizer.ERROR_CLIENT: return "recognizer client error";
+   case SpeechRecognizer.ERROR_SPEECH_TIMEOUT: return "speech timeout";
+   case SpeechRecognizer.ERROR_NO_MATCH: return "no speech matched";
+   case SpeechRecognizer.ERROR_RECOGNIZER_BUSY: return "recognizer busy";
+   case SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS: return "mic permission denied";
+   default: return "recognizer error "+code;
+  }
+ }
+ private void noteError(int code){
+  lastError=errorName(code); lastErrorAt=System.currentTimeMillis();
+  L.w("Ear",new Exception("SpeechRecognizer: "+lastError));
+ }
+ // Continuous mode can fail repeatedly in the background; tell the user, but at most once every 15 seconds.
+ private void showErrorOnce(String msg){
+  long now=System.currentTimeMillis();
+  if(now-lastErrorShown<15000) return;
+  lastErrorShown=now; s.local(msg,false);
+ }
 
  // ---------- one tap, one utterance ----------
  void tapToTalk(){
   if(!permitted()){ s.local("I can't hear you yet: allow the microphone permission on the home screen first.",false); return; }
   if(!available()){ s.local("this phone has no speech recognizer installed, so I can't listen.",false); return; }
   if(continuous){ s.local("I'm already listening, just talk.",false); return; }
+  if(!ensureFgs()) return;
   s.slimeView.say("listening..."); s.slimeView.bounceAnim();
   startOnce(false);
  }
@@ -34,7 +60,7 @@ class Ear {
   continuous=true; active=true; backoff=0;
   s.sp.edit().putBoolean("listenOn",true).apply();
   s.voice.setEnabled(true);
-  if(!startForeground()){ continuous=false; active=false; s.sp.edit().putBoolean("listenOn",false).apply(); return; }
+  if(!ensureFgs()){ continuous=false; active=false; s.sp.edit().putBoolean("listenOn",false).apply(); return; }
   s.local("listening mode on. I'll hear you while the screen is on. Say 'listen off' to stop.",false);
   begin();
  }
@@ -42,7 +68,7 @@ class Ear {
   continuous=false; active=false;
   h.removeCallbacksAndMessages(null);
   teardown();
-  try{ s.stopForeground(true); }catch(Exception e){ L.w("Ear",e); }
+  endFgs();
   s.sp.edit().putBoolean("listenOn",false).apply();
   if(say) s.local("listening mode off.",false);
  }
@@ -52,7 +78,9 @@ class Ear {
  void resumeIfListening(){ if(continuous&&active&&sr==null&&s.screenOn()) begin(); }
  void destroy(){ stopContinuous(false); }
 
- private boolean startForeground(){
+ // A microphone-typed foreground service is required to hold the mic while only an overlay is on screen.
+ private boolean ensureFgs(){
+  if(fgs) return true;
   try{
    NotificationManager nm=(NotificationManager)s.getSystemService("notification");
    if(Build.VERSION.SDK_INT>=26){
@@ -66,8 +94,17 @@ class Ear {
    Notification n=nb.setContentTitle("SlimeDroid is listening").setContentText("Tap to open - say \"listen off\" to stop").setSmallIcon(android.R.drawable.ic_btn_speak_now).setOngoing(true).setContentIntent(pi).build();
    if(Build.VERSION.SDK_INT>=29) s.startForeground(NOTIF_ID,n,ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
    else s.startForeground(NOTIF_ID,n);
-   return true;
-  }catch(Exception e){ L.w("Ear",e); s.local("Android refused to let me listen in the background. Check the microphone permission and try again.",false); return false; }
+   fgs=true; return true;
+  }catch(Exception e){
+   L.w("Ear",e);
+   s.local("Android blocked the listening service: "+e.getMessage()+". Open SlimeDroid once, then try again; also check Settings > Apps > SlimeDroid > microphone is allowed.",false);
+   return false;
+  }
+ }
+ private void endFgs(){
+  if(!fgs) return;
+  try{ s.stopForeground(true); }catch(Exception e){ L.w("Ear",e); }
+  fgs=false;
  }
 
  private void begin(){
@@ -95,10 +132,16 @@ class Ear {
     public void onBufferReceived(byte[] b){}
     public void onEndOfSpeech(){}
     public void onError(int error){
+     noteError(error);
      teardown();
-     if(!loop){ if(error==SpeechRecognizer.ERROR_NO_MATCH||error==SpeechRecognizer.ERROR_SPEECH_TIMEOUT) s.local("didn't catch that, try again.",false); return; }
+     if(!loop){
+      s.local("I couldn't hear that ("+lastError+"). Tap Mic and try again.",false);
+      if(!continuous) endFgs();
+      return;
+     }
      if(error==SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS){ stopContinuous(false); s.local("microphone permission was taken away, listening stopped.",false); return; }
      if(error==SpeechRecognizer.ERROR_CLIENT&&"sw-KE".equals(lang())){ s.sp.edit().putString("listenLang","en").apply(); s.local("Swahili speech pack isn't available here, switching to English.",false); }
+     else if(error!=SpeechRecognizer.ERROR_NO_MATCH&&error!=SpeechRecognizer.ERROR_SPEECH_TIMEOUT) showErrorOnce("listening hiccup: "+lastError+". I'll keep trying, or check 'listen status'.");
      long now=System.currentTimeMillis();
      if(now-lastRestart<2000) backoff=Math.min(backoff+1,5); else backoff=0;
      lastRestart=now;
@@ -113,6 +156,7 @@ class Ear {
       s.handleHeard(text);
      }
      if(loop) begin();
+     else if(!continuous) endFgs();
     }
     public void onPartialResults(Bundle b){}
     public void onEvent(int i,Bundle b){}
@@ -123,7 +167,12 @@ class Ear {
    i.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS,1);
    i.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS,false);
    sr.startListening(i);
-  }catch(Exception e){ L.w("Ear",e); teardown(); if(loop) schedule(2000); }
+  }catch(Exception e){
+   L.w("Ear",e); lastError=e.getMessage(); lastErrorAt=System.currentTimeMillis();
+   teardown();
+   if(loop) schedule(2000);
+   else { s.local("couldn't start listening: "+e.getMessage(),false); if(!continuous) endFgs(); }
+  }
  }
 
  // ---------- commands ----------
@@ -132,7 +181,8 @@ class Ear {
   if(low.equals("listen on")||low.equals("start listening")){ startContinuous(); return true; }
   if(low.equals("listen off")||low.equals("stop listening")){ stopContinuous(true); return true; }
   if(low.equals("listen status")){
-   StringBuilder sb=new StringBuilder("listening: "+(continuous?"on":"off")+"\nlanguage: "+lang()+"\nmic permission: "+(permitted()?"yes":"no")+"\nspeech recognizer on phone: "+(available()?"yes":"no"));
+   StringBuilder sb=new StringBuilder("listening: "+(continuous?"on":"off")+"\nlanguage: "+lang()+"\nmic permission: "+(permitted()?"yes":"no")+"\nspeech recognizer on phone: "+(available()?"yes":"no")+"\nlistening notification: "+(fgs?"active":"off"));
+   if(lastError!=null){ long ago=(System.currentTimeMillis()-lastErrorAt)/1000; sb.append("\nlast error: ").append(lastError).append(" (").append(ago).append("s ago)"); }
    s.showChat(); s.local(sb.toString(),false); return true;
   }
   if(low.startsWith("listen language ")){
