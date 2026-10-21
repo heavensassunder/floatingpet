@@ -1,8 +1,7 @@
 package com.slime;
 import android.app.Service;
-import android.content.BroadcastReceiver; import android.content.Context; import android.content.Intent; import android.content.IntentFilter; import android.content.SharedPreferences;
+import android.content.Intent; import android.content.IntentFilter; import android.content.SharedPreferences;
 import android.graphics.PixelFormat;
-import android.hardware.Sensor; import android.hardware.SensorEvent; import android.hardware.SensorEventListener; import android.hardware.SensorManager;
 import android.os.BatteryManager; import android.os.Handler; import android.os.IBinder; import android.os.PowerManager;
 import android.speech.tts.TextToSpeech;
 import android.util.DisplayMetrics;
@@ -16,26 +15,14 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
  static final int CHAT_H=360;
  WindowManager wm; SlimeView slimeView; ChatView chatView; WindowManager.LayoutParams p1,p2;
  float dx,dy;
- long lastTap=0,lastTouch=0,lastPoke=0,lastTalk=0,lastGreet=0,lastShake=0,lastShakeReact=0,eventMoodUntil=0;
- int shakeCount=0,pokeCount=0;
+ long lastTap=0,lastTouch=0,lastPoke=0,lastTalk=0,eventMoodUntil=0;
+ int pokeCount=0;
  String[] moods={"Happy!","Sleepy","Mad","Love","Hungry","Cry","Wow","Wink","Dead"};
  MemoryManager mem; ActionExecutor executor; TextToSpeech tts; boolean ttsOn=false; Notifs notifs;
  Handler h=new Handler(); Random rnd=new Random(); SharedPreferences sp; Needs needs;
- SensorManager sm; Sensor accel; boolean sensing=false; Wander wander; BroadcastReceiver rx; Clipboard clipboard;
+ Wander wander; Clipboard clipboard; DeviceEvents device;
 
  Runnable lifeTick=new Runnable(){ public void run(){ try{ life(); }catch(Exception e){ L.w("MainService",e); } h.postDelayed(this,30000); }};
- SensorEventListener shakeL=new SensorEventListener(){
-  public void onSensorChanged(SensorEvent e){
-   float x=e.values[0],y=e.values[1],z=e.values[2];
-   double g=Math.sqrt(x*x+y*y+z*z)/SensorManager.GRAVITY_EARTH;
-   long now=System.currentTimeMillis();
-   if(g>2.6&&now-lastShake>350){
-    shakeCount=(now-lastShake<1200)?shakeCount+1:1; lastShake=now;
-    if(shakeCount>=3){ shakeCount=0; onShake(); }
-   }
-  }
-  public void onAccuracyChanged(Sensor s,int a){}
- };
  @Override public void onCreate(){
   super.onCreate(); sp=getSharedPreferences("slime",MODE_PRIVATE);
   OpenRouterClient.prefs=sp; OpenRouterClient.model=sp.getString("model",OpenRouterClient.MODEL); mem=new MemoryManager(this); brain=new Brain(this); Modes.load(this); Pouch.load(this); Evo.init(this); executor=new ActionExecutor(this); tts=new TextToSpeech(this,this); needs=new Needs(sp);
@@ -102,10 +89,7 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
    }
   });
 
-  sm=(SensorManager)getSystemService(SENSOR_SERVICE);
-  try{ accel=sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER); }catch(Exception e){ L.w("MainService",e); }
-  if(screenOn()) startSensor();
-  setupReceivers();
+  device=new DeviceEvents(this); device.start();
   clipboard=new Clipboard(this); clipboard.attach();
   h.postDelayed(lifeTick,30000); wander.start();
   if(!as) h.postDelayed(new Runnable(){ public void run(){ slimeView.say("I'm awake!"); slimeView.bounceAnim(); }},1200);
@@ -220,40 +204,6 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
   }});
  }
 
- // ---------- phone reactions ----------
- void setupReceivers(){
-  rx=new BroadcastReceiver(){ public void onReceive(Context c,Intent i){
-   if(isInitialStickyBroadcast()) return;
-   String a=i.getAction(); if(a==null) return;
-   if(a.equals(Intent.ACTION_POWER_CONNECTED)){ needs.feed(10f); react(Lines.pick(Lines.PLUG),3,5000); }
-   else if(a.equals(Intent.ACTION_POWER_DISCONNECTED)){ react(Lines.pick(Lines.UNPLUG),0,4000); }
-   else if(a.equals(Intent.ACTION_BATTERY_LOW)){ react("battery low! "+batteryLevel()+"%",5,6000); }
-   else if(a.equals(Intent.ACTION_HEADSET_PLUG)){ int st=i.getIntExtra("state",0); if(st==1) react(Lines.pick(Lines.HEAD_ON),7,4000); else react(Lines.pick(Lines.HEAD_OFF),0,3000); }
-   else if(a.equals(Intent.ACTION_USER_PRESENT)){ onUnlock(); }
-   else if(a.equals(Intent.ACTION_SCREEN_ON)){ startSensor(); }
-   else if(a.equals(Intent.ACTION_SCREEN_OFF)){ stopSensor(); sp.edit().putLong("lastSeen",System.currentTimeMillis()).apply(); }
-  }};
-  IntentFilter f=new IntentFilter();
-  f.addAction(Intent.ACTION_POWER_CONNECTED); f.addAction(Intent.ACTION_POWER_DISCONNECTED); f.addAction(Intent.ACTION_BATTERY_LOW);
-  f.addAction(Intent.ACTION_HEADSET_PLUG); f.addAction(Intent.ACTION_USER_PRESENT); f.addAction(Intent.ACTION_SCREEN_ON); f.addAction(Intent.ACTION_SCREEN_OFF);
-  try{ registerReceiver(rx,f); }catch(Exception e){ L.w("MainService",e); }
- }
- void startSensor(){ try{ if(sensing||sm==null||accel==null) return; sm.registerListener(shakeL,accel,SensorManager.SENSOR_DELAY_UI); sensing=true; }catch(Exception e){ L.w("MainService",e); } }
- void stopSensor(){ try{ if(sm!=null&&sensing) sm.unregisterListener(shakeL); }catch(Exception e){ L.w("MainService",e); } sensing=false; }
- void onShake(){
-  long now=System.currentTimeMillis(); if(now-lastShakeReact<4000) return; lastShakeReact=now;
-  needs.cheer(-2f); react(Lines.pick(Lines.SHAKE),8,3500);
- }
- void onUnlock(){
-  long now=System.currentTimeMillis(); long last=sp.getLong("lastSeen",0); sp.edit().putLong("lastSeen",now).apply();
-  if(asleep()){ if(now-lastGreet>30*60000L){ lastGreet=now; react("huh? it's so late... sleep soon?",1,6000); } return; }
-  long gone=last==0?0:now-last; String line=null;
-  if(gone>5*3600000L) line=Lines.byTime(Calendar.getInstance().get(Calendar.HOUR_OF_DAY));
-  else if(gone>90*60000L) line=Lines.pick(Lines.BACK);
-  if(line!=null&&now-lastGreet>10*60000L){ lastGreet=now; needs.cheer(8f); react(line,3,6000); return; }
-  if(notifs.unseen>=3&&now-notifs.lastBubble>60000L){ notifs.lastBubble=now; slimeView.say("you missed "+notifs.unseen+" pings. type 'catch me up'"); slimeView.bounceAnim(); }
- }
-
  // ---------- notifications ----------
  public void onNotif(String pkg,String title,String text){ notifs.onNotif(pkg,title,text); }
 
@@ -364,8 +314,7 @@ public class MainService extends Service implements TextToSpeech.OnInitListener 
   instance=null;
   try{ h.removeCallbacksAndMessages(null); }catch(Exception e){ L.w("MainService",e); }
   try{ if(wander!=null) wander.destroy(); }catch(Exception e){ L.w("MainService",e); }
-  stopSensor();
-  try{ if(rx!=null) unregisterReceiver(rx); }catch(Exception e){ L.w("MainService",e); }
+  try{ if(device!=null) device.destroy(); }catch(Exception e){ L.w("MainService",e); }
   try{ if(clipboard!=null) clipboard.detach(); }catch(Exception e){ L.w("MainService",e); }
   try{ if(tts!=null) tts.shutdown(); }catch(Exception e){ L.w("MainService",e); }
   try{ wm.removeView(slimeView); }catch(Exception e){ L.w("MainService",e); }
