@@ -10,6 +10,17 @@ public class MemoryManager {
  String cut(String s,int max){ if(s==null) return ""; s=s.replace("\n"," "); return s.length()>max?s.substring(0,max):s; }
  public void saveChat(String user,String slime){ try{ JSONArray arr=loadChats(); JSONObject o=new JSONObject(); o.put("u",user); o.put("s",slime); o.put("t",System.currentTimeMillis()); arr.put(o); write(chatFile,tail(arr,120).toString()); }catch(Exception e){ L.w("MemoryManager",e); } }
  public JSONArray loadChats(){ return loadArr(chatFile); }
+ public JSONArray loadNotifs(){ return loadArr(notifFile); }
+ int merge(JSONArray extra,File f,int cap){
+  try{
+   if(extra==null||extra.length()==0) return 0;
+   JSONArray cur=loadArr(f); int added=0;
+   for(int i=0;i<extra.length();i++){ cur.put(extra.get(i)); added++; }
+   write(f,tail(cur,cap).toString()); return added;
+  }catch(Exception e){ L.w("MemoryManager",e); return 0; }
+ }
+ public int mergeChats(JSONArray extra){ return merge(extra,chatFile,120); }
+ public int mergeNotifs(JSONArray extra){ return merge(extra,notifFile,30); }
  public String getRecentContext(int n){ try{ JSONArray arr=loadChats(); StringBuilder sb=new StringBuilder(); for(int i=Math.max(0,arr.length()-n);i<arr.length();i++){ JSONObject o=arr.getJSONObject(i); sb.append("U:").append(cut(o.optString("u"),120)).append(" | S:").append(cut(o.optString("s"),120)).append("\n"); } return sb.toString(); }catch(Exception e){ return ""; } }
  public String getLongContext(){ return read(longFile).trim(); }
  public void saveNotif(String title,String text){ try{ JSONArray arr=loadArr(notifFile); JSONObject o=new JSONObject(); o.put("title",cut(title,40)); o.put("text",cut(text,100)); o.put("t",System.currentTimeMillis()); arr.put(o); write(notifFile,tail(arr,30).toString()); }catch(Exception e){ L.w("MemoryManager",e); } }

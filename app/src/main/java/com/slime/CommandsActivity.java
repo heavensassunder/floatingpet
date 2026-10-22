@@ -39,8 +39,11 @@ public class CommandsActivity extends Activity {
   head("Memory");
   item("memories","see everything I remember, numbered");
   item("remember TEXT","save something on purpose");
+  item("remember about TOPIC","search memories about a topic (also: memory search TOPIC)");
+  item("memory change N TEXT","reword memory N from the memories/search list");
   item("forget N / forget WORDS","remove one memory");
   item("forget all","wipe all memories");
+  item("memory export / memory import","back up memories and chats to SlimePouch, or restore the newest backup");
   item("memory on / memory off","allow or stop automatic saving");
   item("what do you remember","short summary by topic");
   head("Modes");

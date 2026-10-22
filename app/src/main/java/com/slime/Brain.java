@@ -11,9 +11,11 @@ public class Brain {
  static final Pattern BLOCK=Pattern.compile("(?i)(password|passcode|\\bpin\\b|\\botp\\b|\\bcvv\\b|api[ _-]?key|secret key|sk-[a-z0-9]{8,}|\\b\\d{9,}\\b|[\\w.+-]+@[\\w-]+\\.[\\w.]+|suicid|self[- ]?harm|kill myself|\\babus(e|ed)\\b|\\brape|arrested|criminal record|immigration|asylum)");
  static class E{ String id,t,c,prev; long ts,upd; int imp,n; double sc; }
  final MainService s; final File f; final ArrayList<E> list=new ArrayList<E>(); ArrayList<String> last=new ArrayList<String>();
+ public String lastPrev; // set by add() when an explicit save replaces an older fact
  public Brain(MainService s){
   this.s=s; f=new File(s.getFilesDir(),"brain.json"); load();
   if(!s.sp.getBoolean("brainImported",false)) importOld();
+  consolidate();
  }
  // ---------- storage ----------
  void load(){
@@ -60,6 +62,27 @@ public class Brain {
   int inter=0; for(String w:x){ if(y.contains(w)) inter++; }
   return inter/(double)(x.size()+y.size()-inter);
  }
+ // like toks() but keeps short (2-char) words, so names and acronyms can match
+ static HashSet<String> toks2(String x){
+  HashSet<String> r=new HashSet<String>();
+  for(String w:x.toLowerCase(Locale.US).split("[^a-z0-9]+")){
+   if(w.length()<2) continue;
+   boolean st=false; for(String sw:STOP){ if(sw.equals(w)){ st=true; break; } }
+   if(!st) r.add(w);
+  }
+  return r;
+ }
+ static HashSet<String> bigrams(String x){
+  HashSet<String> r=new HashSet<String>(); String prev=null;
+  for(String w:x.toLowerCase(Locale.US).split("[^a-z0-9]+")){
+   if(w.length()<2) continue;
+   boolean st=false; for(String sw:STOP){ if(sw.equals(w)){ st=true; break; } }
+   if(st) continue;
+   if(prev!=null) r.add(prev+"_"+w);
+   prev=w;
+  }
+  return r;
+ }
  static boolean blocked(String x){ return BLOCK.matcher(x).find(); }
  static String okCat(String c){
   if(c==null) return "life"; c=c.trim().toLowerCase(Locale.US);
@@ -87,9 +110,24 @@ public class Brain {
    if(worst==null) break; list.remove(worst);
   }
  }
+ // Daily aging pass: one-off facts that were never repeated slowly lose importance,
+ // so stale trivia makes room for what actually matters. Identity and repeated facts are protected.
+ void consolidate(){
+  long now=System.currentTimeMillis();
+  if(now-s.sp.getLong("brainDecayAt",0)<20L*3600000L) return;
+  s.sp.edit().putLong("brainDecayAt",now).apply();
+  boolean changed=false;
+  for(E e:list){
+   long age=(now-e.upd)/86400000L;
+   if(age>=30&&e.n<2&&e.imp>1&&!"identity".equals(e.c)){ e.imp--; changed=true; }
+  }
+  if(changed) save();
+  if(list.size()>280) prune();
+ }
  // ---------- adding ----------
  public boolean add(String fact,String cat,int imp,boolean explicit){
   if(!explicit&&!s.sp.getBoolean("brainOn",true)) return false;
+  lastPrev=null;
   fact=fact==null?"":fact.trim().replaceAll("\\s+"," ").replaceAll("[.!?,;:]+$","");
   if(fact.length()<4) return false;
   if(fact.length()>180) fact=fact.substring(0,180);
@@ -101,7 +139,7 @@ public class Brain {
   if(k!=null){ for(E e:list){ if(k.equals(key(e.t))){ best=e; bs=1; break; } } }
   if(best==null){ for(E e:list){ double v=sim(e.t,fact); if(v>bs){ bs=v; best=e; } } }
   if(best!=null&&bs>=0.55){
-   if(!best.t.equalsIgnoreCase(fact)){ best.prev=best.t; best.t=fact; }
+   if(!best.t.equalsIgnoreCase(fact)){ best.prev=best.t; best.t=fact; if(explicit) lastPrev=best.prev; }
    best.upd=now; best.n++; best.imp=Math.max(best.imp,imp); if(!cat.equals("life")) best.c=cat;
   } else {
    E e=new E(); e.id=newId(); e.t=fact; e.c=cat; e.prev=""; e.ts=now; e.upd=now; e.imp=imp; e.n=1;
@@ -166,13 +204,24 @@ public class Brain {
  // ---------- recall ----------
  public String context(String q){
   if(list.isEmpty()) return "(nothing remembered yet)";
-  HashSet<String> qt=toks(q==null?"":q); long now=System.currentTimeMillis();
+  String query=q==null?"":q;
+  HashSet<String> qt=toks2(query), qb=bigrams(query); long now=System.currentTimeMillis();
   ArrayList<E> sorted=new ArrayList<E>(list);
   for(E e:sorted){
    double sc=e.imp*1.0+Math.min(e.n,5)*0.3;
    if(now-e.upd<7L*86400000L) sc+=1;
-   if(e.c.equals("identity")&&e.imp>=3) sc+=2;
-   HashSet<String> et=toks(e.t); for(String w:qt){ if(et.contains(w)) sc+=3; }
+   // category weighting: who-you-are facts travel often; trivia rarely
+   if("identity".equals(e.c)) sc+= e.imp>=3?2:1.2;
+   else if("people".equals(e.c)) sc+=0.8;
+   else if("plans".equals(e.c)) sc+=0.5;
+   String el=e.t.toLowerCase(Locale.US); HashSet<String> et=toks2(e.t);
+   for(String w:qt){
+    if(et.contains(w)) sc+= w.length()>=3?3:2;
+    else if(w.length()>=4&&el.contains(w)) sc+=1; // partial hit for long words
+   }
+   int shared=0; HashSet<String> eb=bigrams(e.t);
+   for(String g:qb){ if(eb.contains(g)) shared++; }
+   sc+=Math.min(shared,3)*1.2;
    e.sc=sc;
   }
   Collections.sort(sorted,new Comparator<E>(){ public int compare(E a,E b){ return Double.compare(b.sc,a.sc); } });
@@ -205,9 +254,73 @@ public class Brain {
   if(list.isEmpty()){ s.showChat(); s.local("my memory of you is empty. tell me things, or say: remember ...",false); return; }
   ArrayList<E> o=ordered(); buildList(o);
   StringBuilder sb=new StringBuilder("what I remember (" + o.size() + "):\n");
-  for(int i=0;i<o.size();i++){ E e=o.get(i); sb.append(i+1).append(". ").append(e.t).append("  [").append(e.c).append("]\n"); }
-  sb.append("\nremove one with: forget N");
+  for(int i=0;i<o.size();i++){ E e=o.get(i); sb.append(i+1).append(". ").append(e.t); if(!e.prev.isEmpty()) sb.append("  (was: ").append(e.prev).append(")"); sb.append("  [").append(e.c).append("]\n"); }
+  sb.append("\nremove one with: forget N, reword one with: memory change N new text");
+  s.showChat(); s.local(sb.toString(),false); }
+ // full-text search over facts and their previous wordings
+ void search(String topic){
+  topic=topic==null?"":topic.trim();
+  if(topic.isEmpty()){ s.local("search what? try: remember about school",false); return; }
+  if(list.isEmpty()){ s.local("my memory of you is empty.",false); return; }
+  HashSet<String> qt=toks2(topic), qb=bigrams(topic); String low=topic.toLowerCase(Locale.US);
+  ArrayList<E> hits=new ArrayList<E>();
+  for(E e:list){
+   double sc=0; String el=e.t.toLowerCase(Locale.US); HashSet<String> et=toks2(e.t);
+   for(String w:qt){ if(et.contains(w)) sc+= w.length()>=3?3:2; else if(el.contains(w)) sc+=1.5; }
+   if(low.length()>=4&&el.contains(low)) sc+=4;
+   HashSet<String> eb=bigrams(e.t); for(String g:qb){ if(eb.contains(g)) sc+=1.5; }
+   if(low.length()>=4&&!e.prev.isEmpty()&&e.prev.toLowerCase(Locale.US).contains(low)) sc+=1;
+   if(sc>0){ e.sc=sc; hits.add(e); }
+  }
+  if(hits.isEmpty()){ s.local("I don't remember anything about \""+topic+"\"",false); return; }
+  Collections.sort(hits,new Comparator<E>(){ public int compare(E a,E b){ return Double.compare(b.sc,a.sc); } });
+  while(hits.size()>20) hits.remove(hits.size()-1);
+  buildList(hits);
+  long now=System.currentTimeMillis();
+  StringBuilder sb=new StringBuilder("memories about \""+topic+"\" ("+hits.size()+"):\n");
+  for(int i=0;i<hits.size();i++){
+   E e=hits.get(i); long days=(now-e.upd)/86400000L;
+   sb.append(i+1).append(". ").append(e.t).append("  [").append(e.c).append(", ").append(days).append("d ago]");
+   if(!e.prev.isEmpty()) sb.append(" (was: ").append(e.prev).append(")");
+   sb.append("\n");
+  }
+  sb.append("\nmemory change N ... rewords one, forget N removes it.");
   s.showChat(); s.local(sb.toString(),false);
+ }
+ // reword an existing memory by its number in the last memories/search list
+ void change(String arg){
+  arg=arg==null?"":arg.trim();
+  Matcher m=Pattern.compile("^(\\d{1,3})\\s+(.+)$").matcher(arg);
+  if(!m.find()){ s.local("say: memory change N new wording (use memories or memory search first to get the number)",false); return; }
+  if(last.isEmpty()) buildList(ordered());
+  int i=Integer.parseInt(m.group(1))-1;
+  String nt=m.group(2).trim().replaceAll("\\s+"," ").replaceAll("[.!?,;:]+$","");
+  if(i<0||i>=last.size()){ s.local("I don't have a number "+(i+1)+". say memories to see the list",false); return; }
+  if(nt.length()<4||nt.length()>180){ s.local("the new wording must be 4 to 180 characters",false); return; }
+  if(blocked(nt)){ s.local("I can't keep that wording (passwords, codes and sensitive things stay out)",false); return; }
+  for(E e:list){
+   if(!e.id.equals(last.get(i))) continue;
+   String old=e.t;
+   if(e.prev.isEmpty()) e.prev=old;
+   e.t=nt; e.upd=System.currentTimeMillis(); e.n++; save();
+   s.local("updated.\nwas: "+old+"\nnow: "+nt,false); return;
+  }
+  s.local("that memory number is stale, say memories again",false);
+ }
+ // ---------- backup / restore ----------
+ JSONArray exportArray(){
+  JSONArray a=new JSONArray();
+  try{ for(E e:list){ JSONObject o=new JSONObject(); o.put("id",e.id); o.put("t",e.t); o.put("c",e.c); o.put("prev",e.prev); o.put("ts",e.ts); o.put("upd",e.upd); o.put("imp",e.imp); o.put("n",e.n); a.put(o); } }
+  catch(Exception ex){ L.w("Brain",ex); }
+  return a;
+ }
+ // returns number of entries accepted (new or merged by the usual dedup rules)
+ int importArray(JSONArray a){
+  if(a==null) return 0;
+  int n=0;
+  try{ for(int i=0;i<a.length();i++){ JSONObject o=a.getJSONObject(i); String t=o.optString("t"); if(t.length()>=4&&add(t,o.optString("c","life"),o.optInt("imp",2),true)) n++; } }
+  catch(Exception ex){ L.w("Brain",ex); }
+  return n;
  }
  void remove(E e){ list.remove(e); save(); }
  void forget(String arg){
@@ -240,13 +353,21 @@ public class Brain {
  public boolean handle(String t,String low){
   low=low.trim();
   if(low.equals("memories")||low.equals("memory")||low.equals("memory list")||low.equals("list memories")){ listAll(); return true; }
-  if(low.equals("memory stats")){ s.local(list.size()+" memories. saving is "+(s.sp.getBoolean("brainOn",true)?"on":"off"),false); return true; }
+  if(low.equals("memory stats")){ s.local(list.size()+" memories. saving is "+(s.sp.getBoolean("brainOn",true)?"on":"off")+". say 'memory export' to back them up.",false); return true; }
+  if(low.equals("memory export")||low.equals("backup memory")||low.equals("memory backup")){ new Backup(s).export(); return true; }
+  if(low.equals("memory import")||low.startsWith("memory import ")){ new Backup(s).import_(low.length()>13?low.substring(14).trim():""); return true; }
+  if(low.startsWith("memory search ")){ search(low.substring(14)); return true; }
+  if(low.startsWith("remember about ")){ search(t.substring(Math.min(15,t.length()))); return true; }
+  if(low.startsWith("memory change ")){ change(low.substring(14)); return true; }
   Boolean b=Phone.onoff(low,"memory ");
   if(b!=null){ s.sp.edit().putBoolean("brainOn",b.booleanValue()).apply(); s.local("auto-saving memories "+(b.booleanValue()?"on":"off")+" (you can still say remember ...)",false); return true; }
   if(low.startsWith("remember ")){
    String x=t.substring(Math.min(9,t.length())).trim().replaceFirst("(?i)^that\\s+","");
-   if(add(x,"life",3,true)) s.local("got it, I'll remember that",true);
-   else s.local("I can't keep that one (passwords, codes, private numbers and some sensitive things stay out)",false);
+   if(add(x,"life",3,true)){
+    String msg="got it, I'll remember that";
+    if(lastPrev!=null) msg+=" (you used to say: "+lastPrev+")";
+    lastPrev=null; s.local(msg,true);
+   } else s.local("I can't keep that one (passwords, codes, private numbers and some sensitive things stay out)",false);
    return true;
   }
   if(low.startsWith("forget ")&&!low.equals("forget all")&&!low.equals("forget everything")){ forget(t.substring(7)); return true; }
