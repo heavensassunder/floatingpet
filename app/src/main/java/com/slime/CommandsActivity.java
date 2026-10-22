@@ -64,7 +64,8 @@ public class CommandsActivity extends Activity {
   item("guide","open the beginner guide (also on the home screen)");
   item("fix termux","exempt Termux, Shizuku and me from battery limits so Termux always answers");
   head("Growth");
-  item("evolution","level, xp and unlocked accessories (also shown in status)");
+  item("evolution","level, xp, streak, age, today's XP, behaviour stats, level-up history and accessories");
+  item("achievements","all awards with unlocked state and progress (also: awards)");
   item("models","list the free AI models available right now");
   head("Vibes");
   item("hum","it hums a little tune (it also does this by itself when music is playing)");

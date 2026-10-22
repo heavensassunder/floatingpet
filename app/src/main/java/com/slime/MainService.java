@@ -246,7 +246,7 @@ public class MainService extends Service {
  void handleHeard(String t){ dispatch(t); }
  private void dispatch(final String t){
   String low=t.toLowerCase(); lastTouch=System.currentTimeMillis();
-  needs.cheer(5f);
+  needs.cheer(5f); Evo.touchDay(this);
   if(localCommand(low)) return;
   if(phone!=null&&phone.handle(t,low)) return;
   if(extra!=null&&extra.handle(t,low)) return;

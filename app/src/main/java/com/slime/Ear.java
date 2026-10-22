@@ -228,6 +228,7 @@ class Ear {
      if(r!=null&&!r.isEmpty()&&!r.get(0).trim().isEmpty()){
       String text=r.get(0).trim();
       resultCount++;
+      Evo.award(s,"voice",2,5);
       s.addChat("You: "+text,true);
       if(testMode){ testMode=false; s.local("4/4 recognized: \""+text+"\". The mic and speech engine work.",false); if(!continuous) endFgs(); }
       s.handleHeard(text);
