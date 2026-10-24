@@ -64,9 +64,10 @@ public class CommandsActivity extends Activity {
   item("key add KEY / key remove N / key next","manage OpenRouter keys; I switch by myself when one runs out");
   item("gemini keys","list your Google AI Studio keys");
   item("gemini key add KEY / gemini key remove N / gemini key next","manage Gemini keys the same way");
+  item("gemini key reset / key reset","clear parked-key marks after a minute-level rate limit or once quota resets");
   item("gemini model NAME / gemini models / gemini model reset","pin a Gemini model, list what your key can use, or restore the default");
-  head("Offline brain (no internet, runs in Termux)");
-  item("offline download smol | qwen | all","download a small on-device GGUF model (~400-500 MB each), installs llama.cpp too");
+  head("Offline brain (no internet, runs in Termux; 64-bit devices only)");
+  item("offline download smol | qwen | all","download a small on-device GGUF model (~400-500 MB each), installs llama.cpp too; 32-bit phones are told they can't");
   item("use offline / use gemini / use openrouter","switch provider, or just tap the AI button in the chat");
   item("offline status","download progress, server state, free RAM and disk");
   item("offline model smol | qwen","pick SmolLM2-360M (fast) or Qwen3-0.6B (better Swahili)");

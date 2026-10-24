@@ -8,24 +8,21 @@ import org.json.JSONArray; import org.json.JSONObject;
 // Google AI Studio (Gemini) client. Keyless billing: free tier, multiple API keys pooled and rotated
 // exactly like OpenRouter. Endpoint: generativelanguage.googleapis.com v1beta generateContent.
 public class GeminiClient {
- public static final String DEFAULT_MODEL="gemini-2.5-flash";
+ // flash-lite keeps the large free allowance (hundreds-thousands of RPD); full flash was cut to ~20 RPD on free projects
+ public static final String DEFAULT_MODEL="gemini-2.5-flash-lite";
+ static final String RATE_MIN_PREFIX="RATE_MIN:"; // internal marker: per-minute burst, retryable without benching the key
  // tried in order when the pinned model answers 404/400 (model names get retired between API versions)
- static final String[] FALLBACK={"gemini-2.5-flash","gemini-2.5-flash-lite","gemini-2.0-flash","gemini-1.5-flash"};
+ static final String[] FALLBACK={"gemini-2.5-flash-lite","gemini-2.5-flash","gemini-2.0-flash","gemini-1.5-flash"};
  static SharedPreferences prefs;
  static String day(){ return new SimpleDateFormat("yyyyMMdd",Locale.US).format(new Date()); }
  static String model(){ return prefs==null?DEFAULT_MODEL:prefs.getString("gmodel",DEFAULT_MODEL); }
  static int keyCount(){ try{ return prefs==null?0:Keys.all(prefs,Keys.G).size(); }catch(Exception e){ return 0; } }
  static int used(){ try{ return prefs==null?0:prefs.getInt("gai_"+day(),0); }catch(Exception e){ return 0; } }
  static int usedAuto(){ try{ return prefs==null?0:prefs.getInt("gaiauto_"+day(),0); }catch(Exception e){ return 0; } }
- // free-tier requests-per-day per key depend on the model family
- static int capPerKey(){
-  String m=model().toLowerCase(Locale.US);
-  if(m.contains("1.5")) return 1500;
-  if(m.contains("lite")||m.contains("2.0")) return 1000;
-  return 250; // gemini 2.5 flash free tier
- }
- public static String budget(){ int n=Math.max(1,keyCount()); return used()+"/"+(capPerKey()*n); }
- public static boolean autoOk(){ int n=Math.max(1,keyCount()); return used()<(capPerKey()-30)*n&&usedAuto()<8*n; }
+ // Google no longer publishes fixed free-tier numbers; limits are per project and shown only in AI Studio.
+ public static String budget(){ return used()+" req today (Google sets the limit)"; }
+ // the slime's own calls are rationed locally; user messages are never blocked by this
+ public static boolean autoOk(){ return usedAuto()<6; }
  static void countCall(String k){
   try{
    if(prefs==null) return;
@@ -74,10 +71,15 @@ public class GeminiClient {
  static String interpret(int code,String resp){
   if(code==401||code==403) return "key died bestie, make a new Gemini key at aistudio.google.com/apikey";
   if(code==429){
-   String low=resp==null?"":resp.toLowerCase();
-   if(low.contains("resource_exhausted")||low.contains("quota")||low.contains("per day")||low.contains("daily"))
-    return "too many messages today: this Gemini key's free quota is used up, it resets around midnight US Pacific time";
-   return "too many messages too fast, give me a minute";
+   String low=resp==null?"":resp.toLowerCase(Locale.US);
+   String detail=clip(errMessage(resp));
+   // Google uses RESOURCE_EXHAUSTED for both per-minute bursts and the real daily quota; inspect the body
+   boolean minute=low.contains("per minute")||low.contains("per_minute")||low.contains("rate_limit_exhausted")||low.contains("rate limit");
+   boolean daily=low.contains("per day")||low.contains("per_day")||low.contains("daily")||low.contains("quota_exhausted")||low.contains("free tier");
+   if(minute&&!daily) return RATE_MIN_PREFIX+"too many messages in one minute, Google's rate limit ("+detail+")";
+   if(daily) return "too many messages today: this Gemini project's free quota is used up, it resets around midnight US Pacific time ("+detail+")";
+   // ambiguous exhaustion: treat conservatively as a minute-level retry first, not a full-day bench
+   return RATE_MIN_PREFIX+"Google rate-limited that request ("+detail+")";
   }
   if(code>=200&&code<300){
    try{
@@ -121,6 +123,16 @@ public class GeminiClient {
     if(out==null&&code[0]==400&&(resp.toLowerCase().contains("model")||resp.contains("not found"))) continue;
     break;
    }
+   // per-minute rate limit: wait out Google's short window and retry once instead of benching the key all day
+   if(out!=null&&out.startsWith(RATE_MIN_PREFIX)){
+    Thread.sleep(12000);
+    int[] code={0};
+    String resp=once(key,model(),system,user,code);
+    String retry=interpret(code[0],resp);
+    if(retry!=null&&!retry.startsWith(RATE_MIN_PREFIX)) out=retry;
+    else if(retry==null) out="my bad, brain buffered - say that again?";
+    else out=retry.substring(RATE_MIN_PREFIX.length());
+   }
    if(out==null){
     // one plain retry on transient failures
     int[] code={0};
@@ -128,6 +140,7 @@ public class GeminiClient {
     out=interpret(code[0],resp);
     if(out==null) out="my bad, brain buffered - say that again?";
    }
+   if(out.startsWith(RATE_MIN_PREFIX)) out=out.substring(RATE_MIN_PREFIX.length());
    return out;
   }catch(Exception e){
    String m=e.getMessage(); if(m==null) m="offline"; if(m.length()>60) m=m.substring(0,60);

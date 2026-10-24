@@ -128,8 +128,9 @@ public class MainService extends Service {
  // one-tap provider switch from the chat button; cycles OpenRouter -> Gemini -> Offline
  void toggleAiProvider(){
   String cur=Ai.provider(sp), next;
+  boolean has64=LocalLlm.arch64();
   if(Ai.OPENROUTER.equals(cur)) next=Ai.GEMINI;
-  else if(Ai.GEMINI.equals(cur)) next=Ai.OFFLINE;
+  else if(Ai.GEMINI.equals(cur)) next=has64?Ai.OFFLINE:Ai.OPENROUTER;
   else next=Ai.OPENROUTER;
   if(Ai.GEMINI.equals(next)&&Keys.all(sp,Keys.G).isEmpty()){ local("you haven't added a Gemini key yet - add one on the home screen, or tap again to go offline",false); return; }
   if(Ai.OPENROUTER.equals(next)&&Keys.all(sp,Keys.OR).isEmpty()){ local("you haven't added an OpenRouter key yet - add one on the home screen",false); return; }

@@ -58,6 +58,12 @@ public class Keys {
  public static int usedFor(SharedPreferences sp,String ns,String k){ return sp.getInt(usedPrefix(ns)+hash(k)+"_"+day(),0); }
  public static String mask(String k){ return k.length()<=12?"****":k.substring(0,6)+"..."+k.substring(k.length()-4); }
 
+ static int resetDead(MainService s,String ns){
+  String dp=deadPrefix(ns); int n=0;
+  SharedPreferences.Editor e=s.sp.edit();
+  for(String k:new ArrayList<String>(s.sp.getAll().keySet())){ if(k.startsWith(dp)){ e.remove(k); n++; } }
+  e.apply(); return n;
+ }
  static boolean handle(MainService s,String t,String low){
   low=low.trim();
   // ---------- Gemini (Google AI Studio) keys ----------
@@ -69,6 +75,7 @@ public class Keys {
    }
    if(low.startsWith("gemini key remove ")){ remove(s,G,low.substring(18).trim()); return true; }
    if(low.equals("gemini key next")){ rotate(s,G); return true; }
+   if(low.equals("gemini key reset")){ int n=resetDead(s,G); s.local("cleared "+n+" parked-key mark"+(n==1?"":"s")+" - all Gemini keys are active again",false); return true; }
   }
   // ---------- OpenRouter keys (legacy commands) ----------
   if(low.equals("keys")||low.equals("key")||low.equals("key list")){ list(s,OR); return true; }
@@ -78,6 +85,7 @@ public class Keys {
   }
   if(low.startsWith("key remove ")){ remove(s,OR,low.substring(11).trim()); return true; }
   if(low.equals("key next")||low.equals("next key")){ rotate(s,OR); return true; }
+  if(low.equals("key reset")){ int n=resetDead(s,OR); s.local("cleared "+n+" parked-key mark"+(n==1?"":"s")+" - all OpenRouter keys are active again",false); return true; }
   return false;
  }
  static void list(MainService s,String ns){
