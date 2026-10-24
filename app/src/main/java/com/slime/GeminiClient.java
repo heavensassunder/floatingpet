@@ -8,11 +8,11 @@ import org.json.JSONArray; import org.json.JSONObject;
 // Google AI Studio (Gemini) client. Keyless billing: free tier, multiple API keys pooled and rotated
 // exactly like OpenRouter. Endpoint: generativelanguage.googleapis.com v1beta generateContent.
 public class GeminiClient {
- // flash-lite keeps the large free allowance (hundreds-thousands of RPD); full flash was cut to ~20 RPD on free projects
- public static final String DEFAULT_MODEL="gemini-2.5-flash-lite";
+ // flash-lite keeps the large free allowance (~500 RPD); full flash is cut to ~20 RPD on free projects
+ public static final String DEFAULT_MODEL="gemini-3.5-flash-lite";
  static final String RATE_MIN_PREFIX="RATE_MIN:"; // internal marker: per-minute burst, retryable without benching the key
- // tried in order when the pinned model answers 404/400 (model names get retired between API versions)
- static final String[] FALLBACK={"gemini-2.5-flash-lite","gemini-2.5-flash","gemini-2.0-flash","gemini-1.5-flash"};
+ // tried in order when the pinned model answers 404/400 (Google retires model names for new projects; 2.5 names still work on older ones)
+ static final String[] FALLBACK={"gemini-3.5-flash-lite","gemini-3.1-flash-lite","gemini-2.5-flash-lite","gemini-2.5-flash"};
  static SharedPreferences prefs;
  static String day(){ return new SimpleDateFormat("yyyyMMdd",Locale.US).format(new Date()); }
  static String model(){ return prefs==null?DEFAULT_MODEL:prefs.getString("gmodel",DEFAULT_MODEL); }
@@ -56,7 +56,8 @@ public class GeminiClient {
   JSONObject turn=new JSONObject(); turn.put("role","user"); turn.put("parts",parts);
   JSONArray contents=new JSONArray(); contents.put(turn); body.put("contents",contents);
   JSONObject cfg=new JSONObject();
-  // floor of 700 so internal tokens can never eat the whole reply; 2.5 thinking is switched off for short pet chat
+  // floor of 700 so internal tokens can never eat the whole reply; 2.5 thinking is switched off via thinkingBudget.
+  // 3.x models use thinking_level and already default to MINIMAL, so they need no config at all.
   cfg.put("maxOutputTokens",Math.max(700,maxTokensFor(user))); cfg.put("temperature",0.9);
   if(think&&model.contains("2.5")){ JSONObject tc=new JSONObject(); tc.put("thinkingBudget",0); cfg.put("thinkingConfig",tc); }
   body.put("generationConfig",cfg);
@@ -241,7 +242,7 @@ public class GeminiClient {
   JSONArray contents=new JSONArray(); contents.put(turn);
   JSONObject body=new JSONObject(); body.put("contents",contents);
   JSONObject cfg=new JSONObject(); cfg.put("maxOutputTokens",900); cfg.put("temperature",0.8);
-  if(model().contains("2.5")){ JSONObject tc=new JSONObject(); tc.put("thinkingBudget",0); cfg.put("thinkingConfig",tc); }
+  if(model().contains("2.5")){ JSONObject tc=new JSONObject(); tc.put("thinkingBudget",0); cfg.put("thinkingConfig",tc); } // 3.x defaults to minimal thinking
   body.put("generationConfig",cfg);
   String url="https://generativelanguage.googleapis.com/v1beta/models/"+URLEncoder.encode(model(),"UTF-8")+":generateContent?key="+URLEncoder.encode(key,"UTF-8");
   HttpURLConnection c=(HttpURLConnection)new URL(url).openConnection();

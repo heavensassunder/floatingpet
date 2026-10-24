@@ -40,7 +40,7 @@ public class MainActivity extends Activity {
   btn("Add key(s)","#5DADE2",new Runnable(){ public void run(){ addKeys(); }});
 
   head("Step 2b: Gemini keys - Google AI Studio (optional, fast)");
-  note("Free keys at aistudio.google.com/apikey. Default model is gemini-2.5-flash-lite, which keeps Google's large free daily allowance (the full flash model was cut to roughly 20 free requests a day). Limits are per Google project, so keys from different accounts add room. Add as many as you like, then say 'use gemini'.");
+  note("Free keys at aistudio.google.com/apikey. Default model is gemini-3.5-flash-lite, which keeps Google's large free daily allowance (about 500 requests a day; the full flash models are cut to roughly 20 a day). Google retires old model names on new projects, and the app switches to a working one by itself. Limits are per Google project, so keys from different accounts add room. Add as many as you like, then say 'use gemini'.");
   btn("Open aistudio.google.com/apikey","#48C9B0",new Runnable(){ public void run(){ open(new Intent(Intent.ACTION_VIEW,Uri.parse("https://aistudio.google.com/apikey"))); }});
   gKeyList=new LinearLayout(this); gKeyList.setOrientation(LinearLayout.VERTICAL); gKeyList.setPadding(0,(int)(8*d),0,0); col.addView(gKeyList);
   gKeyIn=new EditText(this); gKeyIn.setHint("paste one or more Gemini keys here"); gKeyIn.setTextColor(Color.WHITE); gKeyIn.setHintTextColor(Color.parseColor("#7F8C8D")); gKeyIn.setTextSize(13f);

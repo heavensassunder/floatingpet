@@ -87,7 +87,7 @@ public class Ai {
   if(low.startsWith("gemini model ")){
    String nm=t.substring(t.toLowerCase(java.util.Locale.US).indexOf("model ")+6).trim();
    if(nm.matches("[A-Za-z0-9._-]{3,80}")){ s.sp.edit().putString("gmodel",nm).apply(); s.local("Gemini model is now "+nm,false); }
-   else s.local("that doesn't look like a model name. example: gemini model gemini-2.5-flash-lite",false);
+   else s.local("that doesn't look like a model name. example: gemini model gemini-3.5-flash-lite",false);
    return true;
   }
   if(low.equals("gemini models")){
