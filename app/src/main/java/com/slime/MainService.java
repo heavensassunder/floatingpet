@@ -23,7 +23,7 @@ public class MainService extends Service {
  Runnable lifeTick=new Runnable(){ public void run(){ try{ life(); }catch(Exception e){ L.w("MainService",e); } h.postDelayed(this,30000); }};
  @Override public void onCreate(){
   super.onCreate(); sp=getSharedPreferences("slime",MODE_PRIVATE);
-  OpenRouterClient.prefs=sp; GeminiClient.prefs=sp; OpenRouterClient.model=sp.getString("model",OpenRouterClient.MODEL); FreeModels.maybeRefresh(sp); mem=new MemoryManager(this); brain=new Brain(this); Modes.load(this); Pouch.load(this); Evo.init(this); executor=new ActionExecutor(this); voice=new Voice(this); ear=new Ear(this);
+  OpenRouterClient.prefs=sp; GeminiClient.prefs=sp; LocalLlm.prefs=sp; OpenRouterClient.model=sp.getString("model",OpenRouterClient.MODEL); FreeModels.maybeRefresh(sp); mem=new MemoryManager(this); brain=new Brain(this); Modes.load(this); Pouch.load(this); Evo.init(this); executor=new ActionExecutor(this); voice=new Voice(this); ear=new Ear(this);
   voice.setIdleListener(new Runnable(){ public void run(){ ear.resumeIfListening(); }}); needs=new Needs(sp);
   wm=(WindowManager)getSystemService(WINDOW_SERVICE);
   slimeView=new SlimeView(this);
@@ -123,16 +123,22 @@ public class MainService extends Service {
   placeChat();
   try{ wm.updateViewLayout(slimeView,p1); }catch(Exception e){ L.w("MainService",e); }
   if(chatView.getVisibility()==View.VISIBLE){ try{ wm.updateViewLayout(chatView,p2); }catch(Exception e){ L.w("MainService",e); } }
-  try{ chatView.setAiProvider(Ai.GEMINI.equals(Ai.provider(sp))); }catch(Exception e){ L.w("MainService",e); }
+  try{ chatView.setAiProvider(Ai.provider(sp)); }catch(Exception e){ L.w("MainService",e); }
  }
- // one-tap provider switch from the chat button; same guards as the 'use gemini/openrouter' commands
+ // one-tap provider switch from the chat button; cycles OpenRouter -> Gemini -> Offline
  void toggleAiProvider(){
-  boolean toGemini=!Ai.GEMINI.equals(Ai.provider(sp));
-  if(toGemini&&Keys.all(sp,Keys.G).isEmpty()){ local("you haven't added a Gemini key yet - add one on the home screen or say gemini key add YOURKEY",false); return; }
-  if(!toGemini&&Keys.all(sp,Keys.OR).isEmpty()){ local("you haven't added an OpenRouter key yet - add one on the home screen",false); return; }
-  sp.edit().putString("aiProvider",toGemini?Ai.GEMINI:Ai.OPENROUTER).apply();
-  chatView.setAiProvider(toGemini);
-  local(toGemini?"switched to Google Gemini ("+GeminiClient.model()+") - tap AI again to go back":"switched to OpenRouter ("+FreeModels.last(sp)+") - tap AI again to go back",true);
+  String cur=Ai.provider(sp), next;
+  if(Ai.OPENROUTER.equals(cur)) next=Ai.GEMINI;
+  else if(Ai.GEMINI.equals(cur)) next=Ai.OFFLINE;
+  else next=Ai.OPENROUTER;
+  if(Ai.GEMINI.equals(next)&&Keys.all(sp,Keys.G).isEmpty()){ local("you haven't added a Gemini key yet - add one on the home screen, or tap again to go offline",false); return; }
+  if(Ai.OPENROUTER.equals(next)&&Keys.all(sp,Keys.OR).isEmpty()){ local("you haven't added an OpenRouter key yet - add one on the home screen",false); return; }
+  if(Ai.OFFLINE.equals(cur)&&!Ai.OFFLINE.equals(next)) LocalLlm.stopServer();
+  sp.edit().putString("aiProvider",next).apply();
+  chatView.setAiProvider(next);
+  if(Ai.OFFLINE.equals(next)) local("switched to the offline brain ("+LocalLlm.modelId()+") - run 'offline download smol' first if you haven't, then just chat. Tap AI to cycle back.",true);
+  else if(Ai.GEMINI.equals(next)) local("switched to Google Gemini ("+GeminiClient.model()+") - tap AI to cycle to offline",true);
+  else local("switched to OpenRouter ("+FreeModels.last(sp)+") - tap AI to cycle providers",true);
  }
  void showChat(){ Phone.focusable(this); chatView.setVisibility(View.VISIBLE); updateViews(); }
  void addChat(String t,boolean user){
@@ -215,7 +221,7 @@ public class MainService extends Service {
 
  // ---------- AI task requests ----------
  void askTask(final String original,String user){
-  if(!Ai.hasKeys(sp)){ local("add an API key first bestie - OpenRouter or Gemini, either works",false); return; }
+  if(!Ai.hasKeys(sp)&&!Ai.OFFLINE.equals(Ai.provider(sp))){ local("add an API key first bestie - OpenRouter or Gemini, or switch to the offline brain",false); return; }
   slimeView.say("on it...");
   String sys=OpenRouterClient.buildSystem(brain.context(original),moods[slimeView.mood],"(not needed for this)","","")+"\nYOUR NEEDS: "+needs.describe()+"\nFor this request you may use up to 70 words. Do not add [[open:]] tags."+Vibe.STYLE;
   Ai.ask(sys,user,new Ai.Callback(){ public void onResult(String reply){ onReply(original,reply); }});
@@ -286,7 +292,7 @@ public class MainService extends Service {
  }
 
  void askAI(final String t){
-  if(!Ai.hasKeys(sp)){ addChat("Slime: add an API key first bestie - OpenRouter or Gemini, either works",false); return; }
+  if(!Ai.hasKeys(sp)&&!Ai.OFFLINE.equals(Ai.provider(sp))){ addChat("Slime: add an API key first bestie - OpenRouter or Gemini, or switch to the offline brain",false); return; }
   slimeView.say("peeking..."); chatView.setVisibility(View.GONE);
   h.postDelayed(new Runnable(){ public void run(){
    String screen=EyeService.instance!=null?EyeService.instance.dumpScreen():"no screen (accessibility is off)";
@@ -322,6 +328,7 @@ public class MainService extends Service {
 
  @Override public void onDestroy(){
   super.onDestroy();
+  try{ if(phone!=null) phone.sh.term(LocalLlm.stopScript(),new Shell.Result(){ public void done(int code,String out,String err,String info){} }); }catch(Exception e){ L.w("MainService",e); }
   instance=null;
   try{ h.removeCallbacksAndMessages(null); }catch(Exception e){ L.w("MainService",e); }
   try{ if(wander!=null) wander.destroy(); }catch(Exception e){ L.w("MainService",e); }

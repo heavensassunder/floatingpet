@@ -69,11 +69,13 @@ public class ChatView extends LinearLayout {
   return b;
  }
  void runQuick(String cmd){ if(input==null||send==null) return; input.setText(cmd); send.performClick(); }
- // provider toggle button: green for Gemini, blue for OpenRouter
- public void setAiProvider(boolean gemini){
+ // provider toggle button: green for Gemini, purple for offline, blue for OpenRouter
+ public void setAiProvider(String provider){
   if(aiBtn==null) return;
-  aiBtn.setText(gemini?"AI: Gemini":"AI: OpenRouter");
-  aiBtn.setBackground(createRound(Color.parseColor(gemini?"#1E8E3E":"#5DADE2"),12f));
+  boolean gemini=Ai.GEMINI.equals(provider), offline=Ai.OFFLINE.equals(provider);
+  aiBtn.setText(offline?"AI: Offline":(gemini?"AI: Gemini":"AI: OpenRouter"));
+  String color=offline?"#AF7AC5":(gemini?"#1E8E3E":"#5DADE2");
+  aiBtn.setBackground(createRound(Color.parseColor(color),12f));
  }
 
  // ---------- copying ----------

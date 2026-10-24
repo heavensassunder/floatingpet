@@ -12,15 +12,18 @@ public class Vision {
    String r;
    try{
     android.content.SharedPreferences sp=OpenRouterClient.prefs;
-    boolean gemini=Ai.GEMINI.equals(Ai.provider(sp));
-    if(gemini&&!Keys.all(sp,Keys.G).isEmpty()){
+    boolean gKeys=!Keys.all(sp,Keys.G).isEmpty(), orKeys=!Keys.all(sp,Keys.OR).isEmpty();
+    // vision stays cloud-only: the small offline models cannot read images
+    String p=Ai.provider(sp);
+    boolean geminiFirst=gKeys&&(Ai.GEMINI.equals(p)||Ai.OFFLINE.equals(p)||!orKeys);
+    if(geminiFirst){
      try{ r=GeminiClient.vision(question,img); }
      catch(Exception e){
-      if(Keys.all(sp,Keys.OR).isEmpty()) throw e;
+      if(!orKeys) throw e;
       r=openRouter(question,img); // Gemini hiccup and an OpenRouter key exists
      }
-    } else if(!Keys.all(sp,Keys.OR).isEmpty()) r=openRouter(question,img);
-    else throw new Exception("add an OpenRouter or Gemini key first");
+    } else if(orKeys) r=openRouter(question,img);
+    else throw new Exception("add an OpenRouter or Gemini key first - the offline brain can't see screenshots");
    }catch(Exception e){ r="couldn't look: "+e.getMessage(); }
    final String out=r;
    new Handler(Looper.getMainLooper()).post(new Runnable(){ public void run(){ cb.onResult(out); }});

@@ -65,6 +65,12 @@ public class CommandsActivity extends Activity {
   item("gemini keys","list your Google AI Studio keys");
   item("gemini key add KEY / gemini key remove N / gemini key next","manage Gemini keys the same way");
   item("gemini model NAME / gemini models / gemini model reset","pin a Gemini model, list what your key can use, or restore the default");
+  head("Offline brain (no internet, runs in Termux)");
+  item("offline download smol | qwen | all","download a small on-device GGUF model (~400-500 MB each), installs llama.cpp too");
+  item("use offline / use gemini / use openrouter","switch provider, or just tap the AI button in the chat");
+  item("offline status","download progress, server state, free RAM and disk");
+  item("offline model smol | qwen","pick SmolLM2-360M (fast) or Qwen3-0.6B (better Swahili)");
+  item("offline start / offline stop","load or release the local server and its wake lock");
   item("copy / copy all","copy my last reply, or the whole chat (also: long-press any message)");
   item("guide","open the beginner guide (also on the home screen)");
   item("fix termux","exempt Termux, Shizuku and me from battery limits so Termux always answers");
