@@ -95,6 +95,11 @@ public class Ai {
    GeminiClient.listModels(new GeminiClient.ListCb(){ public void done(String report){ s.showChat(); s.local(report,false); } });
    return true;
   }
+  if(low.equals("gemini diagnose")||low.equals("gemini test")){
+   s.local("running a live Gemini test call...",false);
+   GeminiClient.diagnose(new GeminiClient.DiagCb(){ public void done(String report){ s.showChat(); s.local(report,false); } });
+   return true;
+  }
   return false;
  }
  // free the local server's RAM and wake lock whenever we move back to a cloud provider
