@@ -6,11 +6,11 @@ import java.io.File; import java.util.Locale;
 public class Phone {
  public static final String AI_HINT="\nPHONE CONTROL: if I clearly ask you to DO something on the phone, you may end your reply with ONE tag [[do:ACTION]] where ACTION is one of: launch APPNAME | back | home | recents | tap X Y | swipe up/down/left/right | look. I always confirm with the user first. Never use the tag otherwise.";
  static final String ENABLE_EYES="P=com.slime; cur=$(settings get secure enabled_accessibility_services); case \"$cur\" in *$P/$P.EyeService*) ;; \"\"|null) settings put secure enabled_accessibility_services $P/$P.EyeService ;; *) settings put secure enabled_accessibility_services \"$cur:$P/$P.EyeService\" ;; esac; settings put secure accessibility_enabled 1; cmd notification allow_listener $P/$P.NotificationEyesService";
- static final String GRANT_ALL="P=com.slime; for p in android.permission.READ_CONTACTS android.permission.POST_NOTIFICATIONS com.termux.permission.RUN_COMMAND; do pm grant $P $p >/dev/null 2>&1; done; appops set $P SYSTEM_ALERT_WINDOW allow; cmd appops set $P RUN_IN_BACKGROUND allow; cmd appops set $P RUN_ANY_IN_BACKGROUND allow; dumpsys deviceidle whitelist +$P >/dev/null 2>&1; "+ENABLE_EYES+"; echo done";
+ static final String GRANT_ALL="P=com.slime; for p in android.permission.POST_NOTIFICATIONS com.termux.permission.RUN_COMMAND; do pm grant $P $p >/dev/null 2>&1; done; appops set $P SYSTEM_ALERT_WINDOW allow; cmd appops set $P RUN_IN_BACKGROUND allow; cmd appops set $P RUN_ANY_IN_BACKGROUND allow; dumpsys deviceidle whitelist +$P >/dev/null 2>&1; "+ENABLE_EYES+"; echo done";
  final MainService s; final Shell sh; String pending=null; long pendingAt=0;
  public Phone(MainService s){ this.s=s; this.sh=new Shell(s); }
 
- static void focusable(MainService s){ try{ s.p2.flags&=~WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE; }catch(Exception e){} }
+ static void focusable(MainService s){ try{ s.p2.flags&=~WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE; }catch(Exception e){ L.w("Phone",e); } }
 
  // after a reboot: switch my own eyes (accessibility + notification access) back on, if Shizuku is running
  public void start(){
@@ -59,14 +59,17 @@ public class Phone {
  }
  // hide my chat so taps and keys land on the real screen, not on me
  void hideThen(Runnable r){
-  try{ s.chatView.setVisibility(View.GONE); s.p2.flags|=WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE; s.wm.updateViewLayout(s.chatView,s.p2); }catch(Exception e){}
+  try{ s.chatView.setVisibility(View.GONE); s.p2.flags|=WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE; s.wm.updateViewLayout(s.chatView,s.p2); }catch(Exception e){ L.w("Phone",e); }
   s.h.postDelayed(r,350);
  }
  void act(String script,String ok,boolean hide){ go(script,ok,hide,false); }
  void actShow(String script,String ok,boolean hide){ go(script,ok,hide,true); }
  void go(final String script,final String ok,boolean hide,final boolean show){
   Runnable r=new Runnable(){ public void run(){
-   sh.rish(script,new Shell.Result(){ public void done(int code,String out,String err,String info){ report(code,out,err,info,ok,show); }});
+   sh.rish(script,new Shell.Result(){ public void done(int code,String out,String err,String info){
+    report(code,out,err,info,ok,show);
+    if(info==null&&code==0){ boolean shot=script!=null&&script.contains("screencap"); Evo.award(s,shot?"shot":"task",shot?3:5,shot?3:5); }
+   }});
   }};
   if(hide) hideThen(r); else r.run();
  }
@@ -115,9 +118,7 @@ public class Phone {
  }
  boolean run(String t,String low,boolean ai){
   if(ai&&!allowed(low)) return true;
-  if(low.equals("phone help")||low.equals("phone")){ Vibe.showHelp(s); if(true) return true;
-   s.local("phone: back, home, recents, key enter/volup/voldown/mute/power | tap X Y, swipe up/down/left/right, stype TEXT | launch APP, force stop APP, goto URL, fg | look [question], shot | brightness 0-100, wifi on/off, data on/off, bluetooth on/off, airplane on/off, rotate on/off, dnd on/off, dark mode on/off, volume 0-15, timeout SECONDS, screen off/on | grant self, shizuku, autoheal on/off, vision model NAME | sh CMD (phone shell), term CMD (Termux)",false); return true;
-  }
+  if(low.equals("phone help")||low.equals("phone")){ Vibe.showHelp(s); return true; }
   if(low.equals("back")){ act("input keyevent 4","back",true); return true; }
   if(low.equals("home")){ act("input keyevent 3","home",true); return true; }
   if(low.equals("recents")){ act("input keyevent 187","recents",true); return true; }
@@ -210,8 +211,7 @@ public class Phone {
 
  // ---------- screenshot + vision ----------
  void look(final String question){
-  final String key=s.sp.getString("key","");
-  if(key.isEmpty()){ s.local("add API key first bestie",false); return; }
+  if(!Ai.hasKeys(s.sp)){ s.local("add an API key first bestie - OpenRouter or Gemini, either works",false); return; }
   if(s.privateNow()){ s.local("that looks like a private app, I'll look away",true); return; }
   File dir=s.getExternalFilesDir(null);
   if(dir==null){ s.local("I have no storage to keep a screenshot in",false); return; }
@@ -222,10 +222,11 @@ public class Phone {
    String p=img.getAbsolutePath();
    sh.rish("screencap -p '"+q(p)+"' && chmod 666 '"+q(p)+"'",new Shell.Result(){ public void done(int code,String out,String err,String info){
     if(info!=null||code!=0){ s.showChat(); s.local(info!=null?info:"screencap failed: "+clip(err),false); return; }
-    Vision.ask(key,s.sp.getString("visionModel",Vision.DEFAULT),question,img,new Vision.Callback(){ public void onResult(String reply){
-     try{ img.delete(); }catch(Exception e){}
+    Evo.award(s,"shot",3,3);
+    Vision.ask(question,img,new Vision.Callback(){ public void onResult(String reply){
+     try{ img.delete(); }catch(Exception e){ L.w("Phone",e); }
      s.showChat(); s.speak(reply);
-     try{ s.mem.saveChat("look: "+question,reply); }catch(Exception e){}
+     try{ s.mem.saveChat("look: "+question,reply); }catch(Exception e){ L.w("Phone",e); }
     }});
    }});
   }});

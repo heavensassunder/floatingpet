@@ -5,8 +5,8 @@ import android.text.SpannableStringBuilder; import android.text.Spanned; import 
 import android.view.*; import android.view.inputmethod.EditorInfo; import android.view.inputmethod.InputMethodManager; import android.widget.*;
 import java.util.regex.Matcher; import java.util.regex.Pattern;
 public class ChatView extends LinearLayout {
- public EditText input; public Button send,close,historyBtn,eyesBtn,voiceBtn;
- public Button feedBtn,playBtn,clipBtn,catchBtn,muteBtn,statusBtn,cmdBtn;
+ public EditText input; public Button send,close,historyBtn,eyesBtn,voiceBtn,micBtn;
+ public Button feedBtn,playBtn,clipBtn,catchBtn,muteBtn,statusBtn,cmdBtn,aiBtn;
  public LinearLayout messagesContainer; public ScrollView scroll;
  public boolean kb=false; public Runnable onKeyboard; long kbAt=0;
  public java.util.ArrayList<String> log=new java.util.ArrayList<String>(); String lastBot="";
@@ -22,14 +22,16 @@ public class ChatView extends LinearLayout {
   input.setImeOptions(EditorInfo.IME_ACTION_SEND);
   LinearLayout.LayoutParams ilp=new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT); ilp.setMargins(0,8,0,0); input.setLayoutParams(ilp);
   send=mk(c,"Send","#5DADE2",10f,14,6); eyesBtn=mk(c,"See","#48C9B0",10f,10,6); voiceBtn=mk(c,"TTS","#AF7AC5",10f,10,6);
+  micBtn=mk(c,"Mic","#E67E22",10f,10,6);
   historyBtn=mk(c,"Hist","#85929E",10f,10,6); close=mk(c,"X","#E74C3C",10f,12,6);
   LinearLayout row=new LinearLayout(c); row.setOrientation(HORIZONTAL); row.setGravity(Gravity.CENTER_VERTICAL);
-  row.addView(send); row.addView(eyesBtn); row.addView(voiceBtn); row.addView(historyBtn); row.addView(close);
+  row.addView(send); row.addView(eyesBtn); row.addView(voiceBtn); row.addView(micBtn); row.addView(historyBtn); row.addView(close);
   HorizontalScrollView rowScroll=new HorizontalScrollView(c); rowScroll.setHorizontalScrollBarEnabled(false); rowScroll.setPadding(0,8,0,0); rowScroll.addView(row);
   feedBtn=mk(c,"Feed","#F5B041",9f,9,5); playBtn=mk(c,"Play","#5DADE2",9f,9,5); clipBtn=mk(c,"Clip","#48C9B0",9f,9,5);
   catchBtn=mk(c,"Catch up","#AF7AC5",9f,9,5); muteBtn=mk(c,"Shh","#85929E",9f,9,5); statusBtn=mk(c,"Status","#5D6D7E",9f,9,5); cmdBtn=mk(c,"Cmds","#AF7AC5",9f,9,5);
+  aiBtn=mk(c,"AI: OpenRouter","#5DADE2",9f,9,5);
   LinearLayout quick=new LinearLayout(c); quick.setOrientation(HORIZONTAL);
-  quick.addView(feedBtn); quick.addView(playBtn); quick.addView(clipBtn); quick.addView(catchBtn); quick.addView(muteBtn); quick.addView(statusBtn); quick.addView(cmdBtn);
+  quick.addView(aiBtn); quick.addView(feedBtn); quick.addView(playBtn); quick.addView(clipBtn); quick.addView(catchBtn); quick.addView(muteBtn); quick.addView(statusBtn); quick.addView(cmdBtn);
   HorizontalScrollView quickScroll=new HorizontalScrollView(c); quickScroll.setHorizontalScrollBarEnabled(false); quickScroll.setPadding(0,7,0,0); quickScroll.addView(quick);
   card.addView(titleRow); card.addView(scroll); card.addView(input); card.addView(rowScroll); card.addView(quickScroll);
   addView(card,new LinearLayout.LayoutParams(340,LinearLayout.LayoutParams.WRAP_CONTENT));
@@ -44,19 +46,19 @@ public class ChatView extends LinearLayout {
   input.setOnEditorActionListener(new TextView.OnEditorActionListener(){ public boolean onEditorAction(TextView v,int a,KeyEvent e){ send.performClick(); return true; }});
   input.setOnClickListener(new View.OnClickListener(){ public void onClick(View v){ setKb(true); }});
   setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener(){ public WindowInsets onApplyWindowInsets(View v,WindowInsets in){
-   try{ if(kb&&System.currentTimeMillis()-kbAt>900&&in.getSystemWindowInsetBottom()<=150) setKb(false); }catch(Exception e){}
+   try{ if(kb&&System.currentTimeMillis()-kbAt>900&&in.getSystemWindowInsetBottom()<=150) setKb(false); }catch(Exception e){ L.w("ChatView",e); }
    return v.onApplyWindowInsets(in);
   }});
  }
  public void setKb(boolean open){
   if(kb==open) return;
   kb=open; kbAt=System.currentTimeMillis();
-  try{ scroll.getLayoutParams().height=open?150:240; scroll.requestLayout(); }catch(Exception e){}
+  try{ scroll.getLayoutParams().height=open?150:240; scroll.requestLayout(); }catch(Exception e){ L.w("ChatView",e); }
   if(onKeyboard!=null) onKeyboard.run();
  }
  public void hideKeyboard(){
-  try{ InputMethodManager imm=(InputMethodManager)getContext().getSystemService(Context.INPUT_METHOD_SERVICE); imm.hideSoftInputFromWindow(input.getWindowToken(),0); }catch(Exception e){}
-  try{ input.clearFocus(); }catch(Exception e){}
+  try{ InputMethodManager imm=(InputMethodManager)getContext().getSystemService(Context.INPUT_METHOD_SERVICE); imm.hideSoftInputFromWindow(input.getWindowToken(),0); }catch(Exception e){ L.w("ChatView",e); }
+  try{ input.clearFocus(); }catch(Exception e){ L.w("ChatView",e); }
   setKb(false);
  }
  Button mk(Context c,String label,String color,float ts,int ph,int pv){
@@ -67,10 +69,18 @@ public class ChatView extends LinearLayout {
   return b;
  }
  void runQuick(String cmd){ if(input==null||send==null) return; input.setText(cmd); send.performClick(); }
+ // provider toggle button: green for Gemini, purple for offline, blue for OpenRouter
+ public void setAiProvider(String provider){
+  if(aiBtn==null) return;
+  boolean gemini=Ai.GEMINI.equals(provider), offline=Ai.OFFLINE.equals(provider);
+  aiBtn.setText(offline?"AI: Offline":(gemini?"AI: Gemini":"AI: OpenRouter"));
+  String color=offline?"#AF7AC5":(gemini?"#1E8E3E":"#5DADE2");
+  aiBtn.setBackground(createRound(Color.parseColor(color),12f));
+ }
 
  // ---------- copying ----------
  static void copyText(Context c,String t){
-  try{ ClipboardManager cm=(ClipboardManager)c.getSystemService(Context.CLIPBOARD_SERVICE); cm.setPrimaryClip(ClipData.newPlainText("slime",t)); Toast.makeText(c,"copied",Toast.LENGTH_SHORT).show(); }catch(Exception e){}
+  try{ ClipboardManager cm=(ClipboardManager)c.getSystemService(Context.CLIPBOARD_SERVICE); cm.setPrimaryClip(ClipData.newPlainText("slime",t)); Toast.makeText(c,"copied",Toast.LENGTH_SHORT).show(); }catch(Exception e){ L.w("ChatView",e); }
  }
  View.OnLongClickListener copier(final String t){ return new View.OnLongClickListener(){ public boolean onLongClick(View v){ copyText(getContext(),t); return true; }}; }
  public void copyLast(){ if(lastBot.isEmpty()) Toast.makeText(getContext(),"nothing to copy yet",Toast.LENGTH_SHORT).show(); else copyText(getContext(),lastBot); }
@@ -159,7 +169,7 @@ public class ChatView extends LinearLayout {
   View.OnClickListener t=new View.OnClickListener(){ public void onClick(View v){ open[0]=!open[0]; upd.run(); }};
   tog.setOnClickListener(t); title.setOnClickListener(t);
   copy.setOnClickListener(new View.OnClickListener(){ public void onClick(View v){
-   try{ ClipboardManager cm=(ClipboardManager)c.getSystemService(Context.CLIPBOARD_SERVICE); cm.setPrimaryClip(ClipData.newPlainText("slime",code)); Toast.makeText(c,"copied",Toast.LENGTH_SHORT).show(); }catch(Exception e){}
+   try{ ClipboardManager cm=(ClipboardManager)c.getSystemService(Context.CLIPBOARD_SERVICE); cm.setPrimaryClip(ClipData.newPlainText("slime",code)); Toast.makeText(c,"copied",Toast.LENGTH_SHORT).show(); }catch(Exception e){ L.w("ChatView",e); }
   }});
   card.addView(head); card.addView(hs);
   return card;
@@ -173,7 +183,7 @@ public class ChatView extends LinearLayout {
   return sb;
  }
  void paint(SpannableStringBuilder sb,String code,String re,String color){
-  try{ Matcher m=Pattern.compile(re).matcher(code); while(m.find()) sb.setSpan(new ForegroundColorSpan(Color.parseColor(color)),m.start(),m.end(),Spanned.SPAN_EXCLUSIVE_EXCLUSIVE); }catch(Exception e){}
+  try{ Matcher m=Pattern.compile(re).matcher(code); while(m.find()) sb.setSpan(new ForegroundColorSpan(Color.parseColor(color)),m.start(),m.end(),Spanned.SPAN_EXCLUSIVE_EXCLUSIVE); }catch(Exception e){ L.w("ChatView",e); }
  }
  Drawable createRound(int color,float r){ GradientDrawable d=new GradientDrawable(); d.setColor(color); d.setCornerRadius(r); return d; }
 }

@@ -21,13 +21,13 @@ public class Extra {
  }
  void diagnose(){
   final StringBuilder sb=new StringBuilder("checking myself:\n");
-  boolean overlay=true; try{ overlay=Settings.canDrawOverlays(s); }catch(Exception e){}
+  boolean overlay=true; try{ overlay=Settings.canDrawOverlays(s); }catch(Exception e){ L.w("Extra",e); }
   sb.append(m(overlay)).append(" overlay permission\n");
   sb.append(m(EyeService.instance!=null)).append(" accessibility (my eyes)\n");
-  String nl=null; try{ nl=Settings.Secure.getString(s.getContentResolver(),"enabled_notification_listeners"); }catch(Exception e){}
+  String nl=null; try{ nl=Settings.Secure.getString(s.getContentResolver(),"enabled_notification_listeners"); }catch(Exception e){ L.w("Extra",e); }
   sb.append(m(nl!=null&&nl.contains("com.slime"))).append(" notification access\n");
   boolean term=s.phone!=null&&s.phone.sh.installed();
-  boolean perm=false; try{ perm=s.checkSelfPermission("com.termux.permission.RUN_COMMAND")==PackageManager.PERMISSION_GRANTED; }catch(Exception e){}
+  boolean perm=false; try{ perm=s.checkSelfPermission("com.termux.permission.RUN_COMMAND")==PackageManager.PERMISSION_GRANTED; }catch(Exception e){ L.w("Extra",e); }
   sb.append(m(term)).append(" Termux installed\n");
   sb.append(m(perm)).append(" run-commands-in-Termux permission\n");
   if(!term){ s.showChat(); s.local(sb.toString()+"fix: install Termux, then run setup_rish.sh in it.",false); return; }

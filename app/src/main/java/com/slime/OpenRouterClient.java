@@ -3,7 +3,6 @@ import android.content.SharedPreferences; import android.os.Handler; import andr
 import java.io.*; import java.net.HttpURLConnection; import java.net.URL; import java.text.SimpleDateFormat; import java.util.ArrayList; import java.util.Date; import java.util.Locale;
 import org.json.JSONArray; import org.json.JSONObject;
 public class OpenRouterClient {
- public interface Callback{ void onResult(String reply); }
  // openrouter/free picks a free model for every request (and copes when models get retired)
  public static final String MODEL="openrouter/free";
  public static String model=MODEL;
@@ -15,7 +14,7 @@ public class OpenRouterClient {
  // the free plan allows about 50 requests a day for each account
  public static String budget(){ return used()+"/"+(50*keyCount()); }
  public static String currentKey(String fallback){
-  try{ if(prefs!=null){ ArrayList<String> ks=Keys.all(prefs); if(!ks.isEmpty()) return Keys.current(prefs,ks); } }catch(Exception e){}
+  try{ if(prefs!=null){ ArrayList<String> ks=Keys.all(prefs); if(!ks.isEmpty()) return Keys.current(prefs,ks); } }catch(Exception e){ L.w("OpenRouterClient",e); }
   return fallback==null?"":fallback;
  }
  static void countCall(String k){
@@ -25,7 +24,7 @@ public class OpenRouterClient {
    e.putInt("ai_"+day(),used()+1);
    if(k!=null&&k.length()>0) e.putInt("aik_"+Keys.hash(k)+"_"+day(),prefs.getInt("aik_"+Keys.hash(k)+"_"+day(),0)+1);
    e.apply();
-  }catch(Exception e){}
+  }catch(Exception e){ L.w("OpenRouterClient",e); }
  }
  public static void countCall(){ countCall(currentKey("")); }
  // the slime's own unprompted calls (random chat, peeks, humming) leave most of the day for you
@@ -61,7 +60,7 @@ public class OpenRouterClient {
   br.close(); return sb.toString();
  }
  static JSONObject msg(String role,String content) throws Exception{ JSONObject o=new JSONObject(); o.put("role",role); o.put("content",content); return o; }
- static String once(String key,String system,String user,boolean merged,int[] code) throws Exception{
+ static String once(String key,String model,String system,String user,boolean merged,int[] code) throws Exception{
   JSONObject body=new JSONObject();
   body.put("model",model); body.put("max_tokens",maxTokensFor(user)); body.put("temperature",0.9);
   JSONArray msgs=new JSONArray();
@@ -98,15 +97,16 @@ public class OpenRouterClient {
   if(code==400||code==404||code==408||code>=500) return null;
   return "my brain lagged ("+code+") try again";
  }
- // one key, with one retry for flaky free models
+ // one key, with one retry for flaky free models; each attempt rotates to another free model
  static String attempt(String key,String system,String user){
   try{
    int[] code={0};
-   String resp=once(key,system,user,false,code);
+   String m=FreeModels.nextChat(prefs);
+   String resp=once(key,m,system,user,false,code);
    String out=interpret(code[0],resp);
    if(out==null){
     int first=code[0];
-    resp=once(key,system,user,first==400,code);
+    resp=once(key,m,system,user,first==400,code);
     out=interpret(code[0],resp);
     if(out==null) out="my bad, brain buffered - say that again?";
    }
@@ -116,16 +116,16 @@ public class OpenRouterClient {
    return "net hiccup: "+m;
   }
  }
- public static void ask(String key,String system,String user,Callback cb){ run(key,system,user,cb); }
- public static void askAuto(String key,String system,String user,Callback cb){
-  try{ if(prefs!=null) prefs.edit().putInt("aiauto_"+day(),usedAuto()+1).apply(); }catch(Exception e){}
+ public static void ask(String key,String system,String user,Ai.Callback cb){ run(key,system,user,cb); }
+ public static void askAuto(String key,String system,String user,Ai.Callback cb){
+  try{ if(prefs!=null) prefs.edit().putInt("aiauto_"+day(),usedAuto()+1).apply(); }catch(Exception e){ L.w("OpenRouterClient",e); }
   run(key,system,user,cb);
  }
- static void run(final String key,final String system,final String user,final Callback cb){
+ static void run(final String key,final String system,final String user,final Ai.Callback cb){
   new Thread(new Runnable(){ public void run(){
    String out;
    ArrayList<String> ks=new ArrayList<String>();
-   try{ if(prefs!=null) ks=Keys.all(prefs); }catch(Exception e){}
+   try{ if(prefs!=null) ks=Keys.all(prefs); }catch(Exception e){ L.w("OpenRouterClient",e); }
    if(ks.isEmpty()&&key!=null&&key.length()>0) ks.add(key);
    int tries=0;
    while(true){

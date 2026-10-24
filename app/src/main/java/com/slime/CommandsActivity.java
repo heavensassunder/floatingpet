@@ -39,8 +39,11 @@ public class CommandsActivity extends Activity {
   head("Memory");
   item("memories","see everything I remember, numbered");
   item("remember TEXT","save something on purpose");
+  item("remember about TOPIC","search memories about a topic (also: memory search TOPIC)");
+  item("memory change N TEXT","reword memory N from the memories/search list");
   item("forget N / forget WORDS","remove one memory");
   item("forget all","wipe all memories");
+  item("memory export / memory import","back up memories and chats to SlimePouch, or restore the newest backup");
   item("memory on / memory off","allow or stop automatic saving");
   item("what do you remember","short summary by topic");
   head("Modes");
@@ -54,14 +57,26 @@ public class CommandsActivity extends Activity {
   item("what are you holding","list what it carries");
   item("drop","put everything in Downloads (or: drop to documents / pictures / termux / a folder path)");
   item("stash","put what it carries away for later");
-  head("Keys, copying and help");
+  head("AI providers and keys");
+  item("use gemini / use openrouter","switch AI provider (the choice is saved) - or tap the AI button in the chat's quick row");
+  item("ai provider","active provider, both key counts, today's usage and current model");
   item("keys","list your OpenRouter keys (masked), which one is in use and today usage");
-  item("key add KEY / key remove N / key next","manage keys; I switch by myself when one runs out");
+  item("key add KEY / key remove N / key next","manage OpenRouter keys; I switch by myself when one runs out");
+  item("gemini keys","list your Google AI Studio keys");
+  item("gemini key add KEY / gemini key remove N / gemini key next","manage Gemini keys the same way");
+  item("gemini model NAME / gemini models / gemini model reset","pin a Gemini model, list what your key can use, or restore the default");
+  head("Offline brain (no internet, runs in Termux)");
+  item("offline download smol | qwen | all","download a small on-device GGUF model (~400-500 MB each), installs llama.cpp too");
+  item("use offline / use gemini / use openrouter","switch provider, or just tap the AI button in the chat");
+  item("offline status","download progress, server state, free RAM and disk");
+  item("offline model smol | qwen","pick SmolLM2-360M (fast) or Qwen3-0.6B (better Swahili)");
+  item("offline start / offline stop","load or release the local server and its wake lock");
   item("copy / copy all","copy my last reply, or the whole chat (also: long-press any message)");
   item("guide","open the beginner guide (also on the home screen)");
   item("fix termux","exempt Termux, Shizuku and me from battery limits so Termux always answers");
   head("Growth");
-  item("evolution","level, xp and unlocked accessories (also shown in status)");
+  item("evolution","level, xp, streak, age, today's XP, behaviour stats, level-up history and accessories");
+  item("achievements","all awards with unlocked state and progress (also: awards)");
   item("models","list the free AI models available right now");
   head("Vibes");
   item("hum","it hums a little tune (it also does this by itself when music is playing)");
@@ -69,6 +84,23 @@ public class CommandsActivity extends Activity {
   item("peek","it glances at your screen and says what it thinks (it also does this at random times)");
   item("peek on / peek off","allow or stop random peeking");
   item("peek more / peek less","how often it peeks");
+
+  head("Voice and listening");
+  item("Mic button / listen on","tap Mic for one utterance, or say listen on for hands-free mode while the screen is on");
+  item("listen test","narrated diagnostic: ear open, voice heard, levels, recognition result and engine errors");
+  item("listen engine auto / ondevice","use the default speech engine, or force the Android 12+ on-device recognizer");
+  item("listen off / listen status","stop continuous listening, or check its state");
+  item("listen language en / sw","recognition language (English US or Swahili KE)");
+  item("tts on / tts off","let the slime speak replies aloud (also the TTS button)");
+  item("tts status / tts cloud test","show voice mode and last cloud error, or test every cloud provider");
+  item("tts mode auto / cloud / local","neural cloud voice with fallback, force cloud, or offline engine only");
+  item("tts provider auto / google / streamelements","which neural provider to try (auto falls through both)");
+  item("tts language en / sw","language of the Google cloud voice");
+  item("tts test","hear the current voice");
+  item("tts cloud voices / tts cloud voice NAME","list or pick a neural voice (e.g. Brian, Amy, Joanna)");
+  item("tts engines / tts engine N","list or switch the on-device speech engine");
+  item("voice list / voice N","list or pick an installed on-device voice");
+  item("tts speed N / tts pitch N","0.5 to 2.0 adjustments");
 
   head("Clipboard");
   item("clip","explain what you copied");
@@ -110,7 +142,7 @@ public class CommandsActivity extends Activity {
   item("screen off / screen on","turn the screen off or on");
 
   head("Power tools");
-  item("model / model NAME","show or change the AI model (default openai/gpt-4o-mini)");
+  item("model / model NAME","show or pin the AI model; by default free :free models rotate automatically");
   item("diagnose","check my permissions, Termux and Shizuku and tell you the exact fix");
   item("grant self","give SlimeDroid its permissions and switch its eyes back on");
   item("shizuku","test the Shizuku connection");

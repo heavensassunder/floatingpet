@@ -41,7 +41,7 @@ public class Modes {
   if(!q&&wasQ) s.sp.edit().putBoolean("pings",s.sp.getBoolean("modePings",true)).apply();
   if(m.equals("focus")&&!old.equals("focus")) dnd(s,true);
   else if(old.equals("focus")&&!m.equals("focus")) dnd(s,false);
-  try{ s.slimeView.setVisibility(View.VISIBLE); s.slimeView.invalidate(); }catch(Exception e){}
+  try{ s.slimeView.setVisibility(View.VISIBLE); s.slimeView.invalidate(); }catch(Exception e){ L.w("Modes",e); }
   startTick(s);
   String line="chill mode. back to being my goofy self.";
   if(m.equals("focus")) line="focus mode. I'll keep quiet and out of your way.";
@@ -53,7 +53,7 @@ public class Modes {
  static void dnd(MainService s,boolean on){
   try{
    if(s.phone!=null&&s.phone.sh.installed()) s.phone.sh.rish("cmd notification set_dnd "+(on?"priority":"off"),new Shell.Result(){ public void done(int a,String b,String c,String d){} });
-  }catch(Exception e){}
+  }catch(Exception e){ L.w("Modes",e); }
  }
  static boolean gameFg(MainService s){
   try{
@@ -69,8 +69,8 @@ public class Modes {
   if(ticking||!mode.equals("game")) return;
   ticking=true;
   s.h.postDelayed(new Runnable(){ public void run(){
-   if(!mode.equals("game")||MainService.instance!=s){ ticking=false; try{ s.slimeView.setVisibility(View.VISIBLE); }catch(Exception e){} return; }
-   try{ s.slimeView.setVisibility(gameFg(s)?View.INVISIBLE:View.VISIBLE); }catch(Exception e){}
+   if(!mode.equals("game")||MainService.instance!=s){ ticking=false; try{ s.slimeView.setVisibility(View.VISIBLE); }catch(Exception e){ L.w("Modes",e); } return; }
+   try{ s.slimeView.setVisibility(gameFg(s)?View.INVISIBLE:View.VISIBLE); }catch(Exception e){ L.w("Modes",e); }
    s.h.postDelayed(this,4000);
   }},4000);
  }

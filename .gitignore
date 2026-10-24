@@ -1,5 +1,22 @@
+# build outputs
 build/
+build_tmp/
+obj/
+bin/
+*.apk
+*.idsig
+*.class
+*.dex
+
+# gradle / IDE
 .gradle/
 .idea/
 local.properties
-*.apk
+
+# signing (build.sh regenerates debug.keystore automatically)
+debug.keystore
+
+# manual backups (use git history instead)
+*.bak
+*.bak[0-9]*
+java_backup*/

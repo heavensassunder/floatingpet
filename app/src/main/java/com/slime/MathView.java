@@ -11,7 +11,7 @@ public class MathView {
   final WebView w; final float d;
   Bridge(WebView w,float d){ this.w=w; this.d=d; }
   @JavascriptInterface public void h(final int px){
-   w.post(new Runnable(){ public void run(){ try{ ViewGroup.LayoutParams lp=w.getLayoutParams(); lp.height=(int)(px*d+0.5f); w.setLayoutParams(lp); }catch(Exception e){} }});
+   w.post(new Runnable(){ public void run(){ try{ ViewGroup.LayoutParams lp=w.getLayoutParams(); lp.height=(int)(px*d+0.5f); w.setLayoutParams(lp); }catch(Exception e){ L.w("MathView",e); } }});
   }
  }
  static View card(Context c,String text,boolean isUser,Drawable bg){

@@ -18,7 +18,7 @@ public class More {
  static void openGuide(MainService s){
   try{
    Intent i=new Intent(s,GuideActivity.class); i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); s.startActivity(i);
-   try{ s.chatView.setVisibility(View.GONE); }catch(Exception e){}
+   try{ s.chatView.setVisibility(View.GONE); }catch(Exception e){ L.w("More",e); }
   }catch(Exception e){ s.local("couldn't open the guide",false); }
  }
 }

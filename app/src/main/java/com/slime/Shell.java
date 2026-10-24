@@ -13,7 +13,7 @@ public class Shell {
  static String nz(String x){ return x==null?"":x; }
  void fail(boolean[] fin,BroadcastReceiver r,Runnable t,Result cb,String msg){
   if(fin[0]) return; fin[0]=true; main.removeCallbacks(t);
-  try{ c.unregisterReceiver(r); }catch(Exception e){}
+  try{ c.unregisterReceiver(r); }catch(Exception e){ L.w("Shell",e); }
   cb.done(-1,"","",msg);
  }
  void run(String path,String[] args,final Result cb){
@@ -24,7 +24,7 @@ public class Shell {
   final Runnable[] to=new Runnable[1];
   rc[0]=new BroadcastReceiver(){ public void onReceive(Context ctx,Intent in){
    if(fin[0]) return; fin[0]=true; main.removeCallbacks(to[0]);
-   try{ c.unregisterReceiver(rc[0]); }catch(Exception e){}
+   try{ c.unregisterReceiver(rc[0]); }catch(Exception e){ L.w("Shell",e); }
    Bundle b=in.getBundleExtra("result");
    String out="", err="", info=null; int code=-1;
    if(b!=null){
@@ -35,7 +35,7 @@ public class Shell {
   }};
   to[0]=new Runnable(){ public void run(){
    if(fin[0]) return; fin[0]=true;
-   try{ c.unregisterReceiver(rc[0]); }catch(Exception e){}
+   try{ c.unregisterReceiver(rc[0]); }catch(Exception e){ L.w("Shell",e); }
    cb.done(-1,"","","Termux didn't answer. Check allow-external-apps=true in ~/.termux/termux.properties, that SlimeDroid has the 'Run commands in Termux' permission, and that Shizuku is running.");
   }};
   try{

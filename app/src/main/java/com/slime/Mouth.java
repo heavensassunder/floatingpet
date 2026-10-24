@@ -10,8 +10,8 @@ public class Mouth {
   noteP.setColor(Color.parseColor("#85C1E9")); noteP.setTextAlign(Paint.Align.CENTER); noteP.setTypeface(Typeface.DEFAULT_BOLD);
  }
  static void talkFor(long ms,boolean sing){ talkUntil=SystemClock.uptimeMillis()+ms; singing=sing; }
- static boolean talking(String state,int mood){
-  return SystemClock.uptimeMillis()<talkUntil && !state.equals("think") && !state.equals("eat") && mood!=8;
+ static boolean talking(int mood){
+  return SystemClock.uptimeMillis()<talkUntil && mood!=8;
  }
  static void draw(SlimeView v,Canvas cv,float cx,float my){
   float t=SystemClock.uptimeMillis()/1000f;
