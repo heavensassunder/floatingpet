@@ -58,7 +58,7 @@ public class CommandsActivity extends Activity {
   item("drop","put everything in Downloads (or: drop to documents / pictures / termux / a folder path)");
   item("stash","put what it carries away for later");
   head("AI providers and keys");
-  item("use gemini / use openrouter","switch AI provider (the choice is saved)");
+  item("use gemini / use openrouter","switch AI provider (the choice is saved) - or tap the AI button in the chat's quick row");
   item("ai provider","active provider, both key counts, today's usage and current model");
   item("keys","list your OpenRouter keys (masked), which one is in use and today usage");
   item("key add KEY / key remove N / key next","manage OpenRouter keys; I switch by myself when one runs out");

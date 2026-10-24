@@ -45,6 +45,7 @@ public class MainService extends Service {
   chatView.historyBtn.setOnClickListener(new View.OnClickListener(){ public void onClick(View v){ Intent i=new Intent(MainService.this,HistoryActivity.class); i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); startActivity(i); }});
   chatView.voiceBtn.setOnClickListener(new View.OnClickListener(){ public void onClick(View v){ boolean on=!voice.enabled(); voice.setEnabled(on); Toast.makeText(MainService.this,on?"VOICE ON":"VOICE OFF",Toast.LENGTH_SHORT).show(); }});
   chatView.micBtn.setOnClickListener(new View.OnClickListener(){ public void onClick(View v){ ear.tapToTalk(); }});
+  chatView.aiBtn.setOnClickListener(new View.OnClickListener(){ public void onClick(View v){ toggleAiProvider(); }});
   chatView.eyesBtn.setOnClickListener(new View.OnClickListener(){ public void onClick(View v){
    if(EyeService.instance==null){ Toast.makeText(MainService.this,"Enable Accessibility!",Toast.LENGTH_SHORT).show(); return; }
    chatView.setVisibility(View.GONE);
@@ -122,6 +123,16 @@ public class MainService extends Service {
   placeChat();
   try{ wm.updateViewLayout(slimeView,p1); }catch(Exception e){ L.w("MainService",e); }
   if(chatView.getVisibility()==View.VISIBLE){ try{ wm.updateViewLayout(chatView,p2); }catch(Exception e){ L.w("MainService",e); } }
+  try{ chatView.setAiProvider(Ai.GEMINI.equals(Ai.provider(sp))); }catch(Exception e){ L.w("MainService",e); }
+ }
+ // one-tap provider switch from the chat button; same guards as the 'use gemini/openrouter' commands
+ void toggleAiProvider(){
+  boolean toGemini=!Ai.GEMINI.equals(Ai.provider(sp));
+  if(toGemini&&Keys.all(sp,Keys.G).isEmpty()){ local("you haven't added a Gemini key yet - add one on the home screen or say gemini key add YOURKEY",false); return; }
+  if(!toGemini&&Keys.all(sp,Keys.OR).isEmpty()){ local("you haven't added an OpenRouter key yet - add one on the home screen",false); return; }
+  sp.edit().putString("aiProvider",toGemini?Ai.GEMINI:Ai.OPENROUTER).apply();
+  chatView.setAiProvider(toGemini);
+  local(toGemini?"switched to Google Gemini ("+GeminiClient.model()+") - tap AI again to go back":"switched to OpenRouter ("+FreeModels.last(sp)+") - tap AI again to go back",true);
  }
  void showChat(){ Phone.focusable(this); chatView.setVisibility(View.VISIBLE); updateViews(); }
  void addChat(String t,boolean user){
