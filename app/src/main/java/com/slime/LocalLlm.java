@@ -49,29 +49,39 @@ public class LocalLlm {
   for(String[] m:MODELS){ if(m[0].equals(id)){ repo=m[2]; hint=m[3]; } }
   return
    "DIR=\"$HOME/slimemodels\"; mkdir -p \"$DIR\"\n"+
+   // pidfile guard: don't start a second downloader for the same model
+   "PIDF=\"$DIR/"+hint+".pid\"\n"+
+   "if [ -f \"$PIDF\" ] && kill -0 \"$(cat \"$PIDF\" 2>/dev/null)\" 2>/dev/null; then echo ALREADY_RUNNING; exit 0; fi\n"+
    "nohup bash -c '\n"+
-   " DIR=\"$HOME/slimemodels\"; REPO=\""+repo+"\"; HINT=\""+hint+"\"\n"+
-   " echo \"downloading $HINT ...\" > \"$DIR/dl.log\"\n"+
+   " DIR=\"$HOME/slimemodels\"; REPO=\""+repo+"\"; HINT=\""+hint+"\"; PIDF=\"$DIR/$HINT.pid\"\n"+
+   " echo $$ > \"$PIDF\"; trap \"rm -f \\\"$PIDF\\\"\" EXIT\n"+
+   " echo \"[$HINT] downloading ...\" >> \"$DIR/dl.log\"\n"+
    " BIN=$(command -v llama-server || command -v server)\n"+
-   " if [ -z \"$BIN\" ]; then echo \"installing llama.cpp ...\" >> \"$DIR/dl.log\"; pkg install -y llama-cpp >> \"$DIR/dl.log\" 2>&1; fi\n"+
-   " if [ -s \"$DIR/$HINT\" ]; then echo DOWNLOAD_DONE >> \"$DIR/dl.log\"; exit 0; fi\n"+
+   " if [ -z \"$BIN\" ]; then echo \"[$HINT] installing llama.cpp ...\" >> \"$DIR/dl.log\"; pkg install -y llama-cpp >> \"$DIR/dl.log\" 2>&1; fi\n"+
+   " if [ -s \"$DIR/$HINT\" ]; then echo \"[$HINT] DOWNLOAD_DONE\" >> \"$DIR/dl.log\"; exit 0; fi\n"+
    " curl -fL \"https://huggingface.co/api/models/$REPO\" -o \"$DIR/hf.json\" 2>>\"$DIR/dl.log\"\n"+
    " FNAME=$(grep -o '\"rfilename\":\"[^\"]*\"' \"$DIR/hf.json\" 2>/dev/null | sed 's/\"rfilename\":\"//;s/\"//' | grep 'Q4_K_M.gguf' | head -1)\n"+
    " [ -z \"$FNAME\" ] && FNAME=\"$HINT\"\n"+
-   " echo \"fetching $FNAME\" >> \"$DIR/dl.log\"\n"+
-   " if curl -fL --retry 3 -o \"$DIR/$HINT.part\" \"https://huggingface.co/$REPO/resolve/main/$FNAME\" >> \"$DIR/dl.log\" 2>&1; then mv \"$DIR/$HINT.part\" \"$DIR/$HINT\"; echo DOWNLOAD_DONE >> \"$DIR/dl.log\"; else echo DOWNLOAD_FAILED >> \"$DIR/dl.log\"; fi\n"+
+   " echo \"[$HINT] fetching $FNAME (resumable)\" >> \"$DIR/dl.log\"\n"+
+   // -C - resumes an interrupted .part instead of restarting from zero
+   " if curl -fL -C - --retry 3 -o \"$DIR/$HINT.part\" \"https://huggingface.co/$REPO/resolve/main/$FNAME\" >> \"$DIR/dl.log\" 2>&1; then mv \"$DIR/$HINT.part\" \"$DIR/$HINT\"; echo \"[$HINT] DOWNLOAD_DONE\" >> \"$DIR/dl.log\"; else echo \"[$HINT] DOWNLOAD_FAILED - rerun the same command to resume\" >> \"$DIR/dl.log\"; fi\n"+
    "' >/dev/null 2>&1 &\n echo started";
  }
  static String statusScript(){
   StringBuilder files=new StringBuilder();
-  for(String[] m:MODELS){ files.append(" [ -s \"$DIR/").append(m[3]).append("\" ] && echo \"MODEL=").append(m[0]).append(" $(du -h '$DIR/").append(m[3]).append("' | cut -f1)\";"); }
+  for(String[] m:MODELS){
+   files.append(" [ -s \"$DIR/").append(m[3]).append("\" ] && echo \"MODEL=").append(m[0]).append(" $(du -h '$DIR/").append(m[3]).append("' | cut -f1)\";");
+   files.append(" [ -s \"$DIR/").append(m[3]).append(".part\" ] && echo \"PART=").append(m[0]).append(" $(du -h '$DIR/").append(m[3]).append(".part' | cut -f1) so far\";");
+  }
   return
    "DIR=\"$HOME/slimemodels\"; mkdir -p \"$DIR\"\n"+
    "BIN=$(command -v llama-server || command -v server); [ -n \"$BIN\" ] && echo BIN=ok || echo BIN=missing\n"+
    files+
-   "\n pgrep -f 'curl.*huggingface' >/dev/null && echo DL=running || echo DL=idle\n"+
+   // name-based matches (no -f) so the downloader script's own text can't trigger false positives
+   "\n if pgrep -x pkg >/dev/null 2>&1 || pgrep -x apt >/dev/null 2>&1 || pgrep -x dpkg >/dev/null 2>&1; then echo INSTALL=running; else echo INSTALL=idle; fi\n"+
+   "if pgrep -x curl >/dev/null 2>&1; then echo DL=running; else echo DL=idle; fi\n"+
    "tail -1 \"$DIR/dl.log\" 2>/dev/null | sed 's/^/DLLOG=/'\n"+
-   "pgrep -f 'llama-server' >/dev/null || pgrep -f 'bin/server' >/dev/null && echo SERVER=running || echo SERVER=stopped\n"+
+   "if pgrep -x llama-server >/dev/null 2>&1 || pgrep -x server >/dev/null 2>&1; then echo SERVER=running; else echo SERVER=stopped; fi\n"+
    "free -m 2>/dev/null | awk '/Mem:/{print \"MEM_MB=\"$7}'\n"+
    "df -m \"$HOME\" | tail -1 | awk '{print \"DISK_MB=\"$4}'";
  }
@@ -81,12 +91,12 @@ public class LocalLlm {
    "DIR=\"$HOME/slimemodels\"; BIN=$(command -v llama-server || command -v server)\n"+
    "if [ -z \"$BIN\" ]; then echo NO_BIN; exit 0; fi\n"+
    "if [ ! -s \"$DIR/"+hint+"\" ]; then echo NO_MODEL; exit 0; fi\n"+
-   "pkill -f llama-server 2>/dev/null; pkill -f 'bin/server' 2>/dev/null; sleep 1\n"+
+   "pkill -x llama-server 2>/dev/null; pkill -x server 2>/dev/null; sleep 1\n"+
    "termux-wake-lock 2>/dev/null\n"+
    "nohup \"$BIN\" -m \"$DIR/"+hint+"\" -c 1024 -t 4 --host 127.0.0.1 --port "+PORT+" > \"$DIR/server.log\" 2>&1 &\n echo STARTED";
  }
  static String stopScript(){
-  return "pkill -f llama-server 2>/dev/null; pkill -f 'bin/server' 2>/dev/null; termux-wake-unlock 2>/dev/null; echo stopped";
+  return "pkill -x llama-server 2>/dev/null; pkill -x server 2>/dev/null; termux-wake-unlock 2>/dev/null; echo stopped";
  }
  static void stopServer(){
   new Thread(new Runnable(){ public void run(){ try{ shell(stopScript()); }catch(Exception e){ L.w("LocalLlm",e); } }}).start();
@@ -189,8 +199,15 @@ public class LocalLlm {
    else { s.local("say: offline download smol | qwen | all",false); return true; }
    new Thread(new Runnable(){ public void run(){
     try{
-     for(String id:ids) shell(downloadScript(id));
-     h.post(new Runnable(){ public void run(){ s.local("download started in Termux's background - about 400-500 MB per model on Wi-Fi. Say 'offline status' to watch progress, then 'use offline'.",false); }});
+     final StringBuilder msg=new StringBuilder();
+     for(String id:ids){
+      String[] r=shell(downloadScript(id));
+      if(r[1].contains("ALREADY_RUNNING")) msg.append(id).append(" is already downloading; ");
+     }
+     h.post(new Runnable(){ public void run(){
+      if(msg.length()>0) s.local(msg+"not starting a duplicate. Say 'offline status' to watch it.",false);
+      else s.local("download started in Termux's background - about 400-500 MB per model, works on Wi-Fi or mobile data. Say 'offline status' to watch progress, then 'use offline'.",false);
+     }});
     }catch(final Exception e){ h.post(new Runnable(){ public void run(){ s.local("couldn't start the download: "+e.getMessage(),false); }}); }
    }}).start();
    return true;
@@ -200,7 +217,7 @@ public class LocalLlm {
     try{
      final String[] r=shell(statusScript());
      final StringBuilder sb=new StringBuilder("offline brain:\nactive model: ").append(modelId()).append(" - ").append(modelLabel()).append("\n");
-     for(String ln:r[1].split("\n")){ if(ln.startsWith("BIN=")||ln.startsWith("MODEL=")||ln.startsWith("DL=")||ln.startsWith("SERVER=")||ln.startsWith("MEM_MB=")||ln.startsWith("DISK_MB=")||ln.startsWith("DLLOG=")) sb.append(ln).append("\n"); }
+     for(String ln:r[1].split("\n")){ if(ln.startsWith("BIN=")||ln.startsWith("MODEL=")||ln.startsWith("PART=")||ln.startsWith("INSTALL=")||ln.startsWith("DL=")||ln.startsWith("SERVER=")||ln.startsWith("MEM_MB=")||ln.startsWith("DISK_MB=")||ln.startsWith("DLLOG=")) sb.append(ln).append("\n"); }
      sb.append("\noffline download smol|qwen|all | offline model smol|qwen | use offline");
      h.post(new Runnable(){ public void run(){ s.showChat(); s.local(sb.toString(),false); }});
     }catch(final Exception e){ h.post(new Runnable(){ public void run(){ s.local("status failed: "+e.getMessage(),false); }}); }
