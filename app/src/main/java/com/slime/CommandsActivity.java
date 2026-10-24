@@ -57,9 +57,14 @@ public class CommandsActivity extends Activity {
   item("what are you holding","list what it carries");
   item("drop","put everything in Downloads (or: drop to documents / pictures / termux / a folder path)");
   item("stash","put what it carries away for later");
-  head("Keys, copying and help");
+  head("AI providers and keys");
+  item("use gemini / use openrouter","switch AI provider (the choice is saved)");
+  item("ai provider","active provider, both key counts, today's usage and current model");
   item("keys","list your OpenRouter keys (masked), which one is in use and today usage");
-  item("key add KEY / key remove N / key next","manage keys; I switch by myself when one runs out");
+  item("key add KEY / key remove N / key next","manage OpenRouter keys; I switch by myself when one runs out");
+  item("gemini keys","list your Google AI Studio keys");
+  item("gemini key add KEY / gemini key remove N / gemini key next","manage Gemini keys the same way");
+  item("gemini model NAME / gemini models / gemini model reset","pin a Gemini model, list what your key can use, or restore the default");
   item("copy / copy all","copy my last reply, or the whole chat (also: long-press any message)");
   item("guide","open the beginner guide (also on the home screen)");
   item("fix termux","exempt Termux, Shizuku and me from battery limits so Termux always answers");

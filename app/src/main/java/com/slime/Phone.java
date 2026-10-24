@@ -211,8 +211,7 @@ public class Phone {
 
  // ---------- screenshot + vision ----------
  void look(final String question){
-  final String key=s.sp.getString("key","");
-  if(key.isEmpty()){ s.local("add API key first bestie",false); return; }
+  if(!Ai.hasKeys(s.sp)){ s.local("add an API key first bestie - OpenRouter or Gemini, either works",false); return; }
   if(s.privateNow()){ s.local("that looks like a private app, I'll look away",true); return; }
   File dir=s.getExternalFilesDir(null);
   if(dir==null){ s.local("I have no storage to keep a screenshot in",false); return; }
@@ -224,7 +223,7 @@ public class Phone {
    sh.rish("screencap -p '"+q(p)+"' && chmod 666 '"+q(p)+"'",new Shell.Result(){ public void done(int code,String out,String err,String info){
     if(info!=null||code!=0){ s.showChat(); s.local(info!=null?info:"screencap failed: "+clip(err),false); return; }
     Evo.award(s,"shot",3,3);
-    Vision.ask(key,FreeModels.nextVision(s.sp),question,img,new Vision.Callback(){ public void onResult(String reply){
+    Vision.ask(question,img,new Vision.Callback(){ public void onResult(String reply){
      try{ img.delete(); }catch(Exception e){ L.w("Phone",e); }
      s.showChat(); s.speak(reply);
      try{ s.mem.saveChat("look: "+question,reply); }catch(Exception e){ L.w("Phone",e); }

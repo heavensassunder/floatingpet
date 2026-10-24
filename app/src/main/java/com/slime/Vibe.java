@@ -37,8 +37,7 @@ public class Vibe {
  void hum(boolean force){
   long now=System.currentTimeMillis();
   lastHum=now; humWait=5*60000L+rnd.nextInt(6*60000);
-  String key=s.sp.getString("key","");
-  if(!force&&!key.isEmpty()&&OpenRouterClient.autoOk()&&rnd.nextInt(100)<30) humAI(key); else humLocal();
+  if(!force&&Ai.hasKeys(s.sp)&&Ai.autoOk()&&rnd.nextInt(100)<30) humAI(); else humLocal();
  }
  void dance(String line){
   s.moodEvent(rnd.nextBoolean()?3:7,9000);
@@ -46,9 +45,9 @@ public class Vibe {
   for(int i=0;i<3;i++){ s.h.postDelayed(new Runnable(){ public void run(){ try{ s.slimeView.bounceAnim(); }catch(Exception e){ L.w("Vibe",e); } }},i*450L); }
  }
  void humLocal(){ dance(HUMS[rnd.nextInt(HUMS.length)]); }
- void humAI(String key){
+ void humAI(){
   String sys="You are SlimeDroid, a little blue slime pet. Music is playing nearby so you hum or sing along softly. Reply with ONE tiny original hummed or sung line (max 8 words) using music note symbols and your own made-up words or scat syllables. Never use real song lyrics. Output only the line.";
-  OpenRouterClient.askAuto(key,sys,"(music is playing)",new OpenRouterClient.Callback(){ public void onResult(String reply){
+  Ai.askAuto(sys,"(music is playing)",new Ai.Callback(){ public void onResult(String reply){
    if(reply==null||s.isErr(reply)||reply.trim().isEmpty()){ humLocal(); return; }
    dance(reply.trim());
   }});
@@ -56,16 +55,15 @@ public class Vibe {
 
  // ---------- glancing at the screen ----------
  void peek(final boolean force){
-  String key=s.sp.getString("key","");
-  if(key.isEmpty()){ if(force) s.local("add API key first bestie",false); return; }
-  if(!force&&!OpenRouterClient.autoOk()) return;
+  if(!Ai.hasKeys(s.sp)){ if(force) s.local("add an API key first bestie - OpenRouter or Gemini, either works",false); return; }
+  if(!force&&!Ai.autoOk()) return;
   if(EyeService.instance==null){ if(force) s.local("my eyes are off. type grant self, or switch on my accessibility",false); return; }
   if(s.privateNow()){ if(force) s.local("that looks private, I'll look away",false); return; }
   String screen=EyeService.instance.dumpScreen();
   String sys=OpenRouterClient.buildSystem(s.brain.context(screen),s.moods[s.slimeView.mood],screen,s.mem.getNotifContext(),s.mem.getRecentContext(4))
    +"\nYOUR NEEDS: "+s.needs.describe()+STYLE
    +"\nThis time you glance at my screen on your own and say ONE natural thing about what you see, like a friend looking over my shoulder (max 25 words). Be specific to what is really there. If the screen is boring, empty, or looks private (passwords, banking, personal chats), reply with exactly SKIP. Do not add [[open:]] or [[do:]] tags.";
-  OpenRouterClient.askAuto(key,sys,"(you glance at my screen and speak your mind)",new OpenRouterClient.Callback(){ public void onResult(String reply){
+  Ai.askAuto(sys,"(you glance at my screen and speak your mind)",new Ai.Callback(){ public void onResult(String reply){
    if(reply==null||s.isErr(reply)){ if(force) s.local("couldn't peek just now",false); return; }
    String r=s.stripTags(reply).trim();
    if(r.toUpperCase().startsWith("SKIP")||r.isEmpty()){ if(force) s.local("nothing interesting on screen right now",true); return; }

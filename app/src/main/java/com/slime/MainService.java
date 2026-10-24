@@ -23,7 +23,7 @@ public class MainService extends Service {
  Runnable lifeTick=new Runnable(){ public void run(){ try{ life(); }catch(Exception e){ L.w("MainService",e); } h.postDelayed(this,30000); }};
  @Override public void onCreate(){
   super.onCreate(); sp=getSharedPreferences("slime",MODE_PRIVATE);
-  OpenRouterClient.prefs=sp; OpenRouterClient.model=sp.getString("model",OpenRouterClient.MODEL); FreeModels.maybeRefresh(sp); mem=new MemoryManager(this); brain=new Brain(this); Modes.load(this); Pouch.load(this); Evo.init(this); executor=new ActionExecutor(this); voice=new Voice(this); ear=new Ear(this);
+  OpenRouterClient.prefs=sp; GeminiClient.prefs=sp; OpenRouterClient.model=sp.getString("model",OpenRouterClient.MODEL); FreeModels.maybeRefresh(sp); mem=new MemoryManager(this); brain=new Brain(this); Modes.load(this); Pouch.load(this); Evo.init(this); executor=new ActionExecutor(this); voice=new Voice(this); ear=new Ear(this);
   voice.setIdleListener(new Runnable(){ public void run(){ ear.resumeIfListening(); }}); needs=new Needs(sp);
   wm=(WindowManager)getSystemService(WINDOW_SERVICE);
   slimeView=new SlimeView(this);
@@ -174,7 +174,7 @@ public class MainService extends Service {
   long now=System.currentTimeMillis();
   if(!force){ if(!canTalk()||now-lastTalk<talkGap()||rnd.nextInt(100)>=35) return; }
   lastTalk=now;
-  if(rnd.nextInt(100)<40&&sp.getString("key","").length()>0&&OpenRouterClient.autoOk()) idleAI(); else speak(localLine());
+  if(rnd.nextInt(100)<40&&Ai.hasKeys(sp)&&Ai.autoOk()) idleAI(); else speak(localLine());
  }
  String localLine(){
   int hr=Calendar.getInstance().get(Calendar.HOUR_OF_DAY); int bat=batteryLevel(); boolean ch=isCharging();
@@ -188,12 +188,11 @@ public class MainService extends Service {
   return Lines.pick(Lines.IDLE);
  }
  void idleAI(){
-  String key=sp.getString("key","");
-  if(key.isEmpty()){ speak(localLine()); return; }
+  if(!Ai.hasKeys(sp)){ speak(localLine()); return; }
   Calendar c=Calendar.getInstance(); String time=String.format(Locale.US,"%02d:%02d",c.get(Calendar.HOUR_OF_DAY),c.get(Calendar.MINUTE));
   String sys=OpenRouterClient.buildSystem(brain.context(""),moods[slimeView.mood],"(not looking at the screen)",mem.getNotifContext(),mem.getRecentContext(4))+"\nYOUR NEEDS: "+needs.describe()+". Unread notifications: "+notifs.unseen+". Battery: "+batteryLevel()+"%.\nThis time you may use at most 22 words. Do not add [[open:]] tags."+Vibe.STYLE;
   String user="(You decide to say something on your own, unprompted. Time is "+time+". Say ONE short casual thing like a living pet would. Maybe mention something you remember about me, the time, your needs, or my notifications. At most one question. Don't start with 'hey' every time.)";
-  OpenRouterClient.askAuto(key,sys,user,new OpenRouterClient.Callback(){ public void onResult(String reply){
+  Ai.askAuto(sys,user,new Ai.Callback(){ public void onResult(String reply){
    if(reply==null||isErr(reply)){ speak(localLine()); return; }
    if(chatView.getVisibility()!=View.VISIBLE&&!canTalk()) return;
    speak(stripTags(reply));
@@ -205,18 +204,17 @@ public class MainService extends Service {
 
  // ---------- AI task requests ----------
  void askTask(final String original,String user){
-  String key=sp.getString("key","");
-  if(key.isEmpty()){ local("add API key first bestie",false); return; }
+  if(!Ai.hasKeys(sp)){ local("add an API key first bestie - OpenRouter or Gemini, either works",false); return; }
   slimeView.say("on it...");
   String sys=OpenRouterClient.buildSystem(brain.context(original),moods[slimeView.mood],"(not needed for this)","","")+"\nYOUR NEEDS: "+needs.describe()+"\nFor this request you may use up to 70 words. Do not add [[open:]] tags."+Vibe.STYLE;
-  OpenRouterClient.ask(key,sys,user,new OpenRouterClient.Callback(){ public void onResult(String reply){ onReply(original,reply); }});
+  Ai.ask(sys,user,new Ai.Callback(){ public void onResult(String reply){ onReply(original,reply); }});
  }
 
  // ---------- chat commands ----------
  boolean localCommand(String low){
   long now=System.currentTimeMillis();
   if(low.equals("help")||low.equals("commands")){ Vibe.showHelp(this); return true; }
-  if(low.equals("status")||low.equals("stats")){ local(Evo.line(this)+" | food "+(int)needs.food+" | energy "+(int)needs.energy+" | joy "+(int)needs.joy+" | battery "+batteryLevel()+"% | ai "+OpenRouterClient.budget()+" | "+FreeModels.last(sp),false); return true; }
+  if(low.equals("status")||low.equals("stats")){ local(Evo.line(this)+" | food "+(int)needs.food+" | energy "+(int)needs.energy+" | joy "+(int)needs.joy+" | battery "+batteryLevel()+"% | "+Ai.provider(sp)+" "+Ai.budget()+" | "+Ai.currentModelName(),false); return true; }
   if(low.equals("feed")||low.equals("feed slime")||low.equals("snack")){
    if(needs.food>90f){ local("I'm stuffed, no more!"); } else { needs.feed(25f); moodEvent(3,6000); local("nom nom nom... thanks!"); }
    return true;
@@ -250,6 +248,7 @@ public class MainService extends Service {
   if(localCommand(low)) return;
   if(phone!=null&&phone.handle(t,low)) return;
   if(extra!=null&&extra.handle(t,low)) return;
+  if(Ai.handle(this,t,low)) return;
   if(Modes.handle(this,t,low)||Pouch.handle(this,t,low)||Evo.handle(this,low)||(brain!=null&&brain.handle(t,low))) return;
   if(vibe!=null&&vibe.handle(t,low)) return;
   if(ear.handle(t,low)) return;
@@ -276,13 +275,12 @@ public class MainService extends Service {
  }
 
  void askAI(final String t){
-  final String key=sp.getString("key","");
-  if(key.isEmpty()){ addChat("Slime: add API key first bestie",false); return; }
+  if(!Ai.hasKeys(sp)){ addChat("Slime: add an API key first bestie - OpenRouter or Gemini, either works",false); return; }
   slimeView.say("peeking..."); chatView.setVisibility(View.GONE);
   h.postDelayed(new Runnable(){ public void run(){
    String screen=EyeService.instance!=null?EyeService.instance.dumpScreen():"no screen (accessibility is off)";
    String sys=OpenRouterClient.buildSystem(brain.context(t),moods[slimeView.mood],screen,mem.getNotifContext(),mem.getRecentContext(6))+"\nYOUR NEEDS: "+needs.describe()+Phone.AI_HINT+Vibe.STYLE+Brain.PROMPT+Modes.prompt(MainService.this);
-   OpenRouterClient.ask(key,sys,t,new OpenRouterClient.Callback(){ public void onResult(String reply){ onReply(t,reply); }});
+   Ai.ask(sys,t,new Ai.Callback(){ public void onResult(String reply){ onReply(t,reply); }});
   }},420);
  }
 

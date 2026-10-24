@@ -3,7 +3,6 @@ import android.content.SharedPreferences; import android.os.Handler; import andr
 import java.io.*; import java.net.HttpURLConnection; import java.net.URL; import java.text.SimpleDateFormat; import java.util.ArrayList; import java.util.Date; import java.util.Locale;
 import org.json.JSONArray; import org.json.JSONObject;
 public class OpenRouterClient {
- public interface Callback{ void onResult(String reply); }
  // openrouter/free picks a free model for every request (and copes when models get retired)
  public static final String MODEL="openrouter/free";
  public static String model=MODEL;
@@ -117,12 +116,12 @@ public class OpenRouterClient {
    return "net hiccup: "+m;
   }
  }
- public static void ask(String key,String system,String user,Callback cb){ run(key,system,user,cb); }
- public static void askAuto(String key,String system,String user,Callback cb){
+ public static void ask(String key,String system,String user,Ai.Callback cb){ run(key,system,user,cb); }
+ public static void askAuto(String key,String system,String user,Ai.Callback cb){
   try{ if(prefs!=null) prefs.edit().putInt("aiauto_"+day(),usedAuto()+1).apply(); }catch(Exception e){ L.w("OpenRouterClient",e); }
   run(key,system,user,cb);
  }
- static void run(final String key,final String system,final String user,final Callback cb){
+ static void run(final String key,final String system,final String user,final Ai.Callback cb){
   new Thread(new Runnable(){ public void run(){
    String out;
    ArrayList<String> ks=new ArrayList<String>();
