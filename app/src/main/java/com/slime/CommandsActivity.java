@@ -32,6 +32,10 @@ public class CommandsActivity extends Activity {
   item("wake up","keep it awake for 5 hours");
   item("pings on / pings off","bubbles for new notifications");
   item("catch me up","summary of your recent notifications");
+  head("Reminders");
+  item("remind me in 20 minutes to TEXT","also: in 3 hours, in 2 days - it pings and speaks when due");
+  item("remind me tomorrow 7am to TEXT / remind me at 14:30 TEXT","clock times, am/pm supported, bare time means next occurrence");
+  item("reminders / forget reminder N","list upcoming reminders, or remove one by its number");
   item("what do you remember","what it knows about you");
   item("forget all","wipe what it remembers");
   item("clear history","clear chat and notification history");
