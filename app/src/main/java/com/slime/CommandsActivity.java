@@ -137,6 +137,7 @@ public class CommandsActivity extends Activity {
   item("fg","which app is on screen");
   item("shot","save a screenshot to Pictures");
   item("look QUESTION","screenshot, then the slime answers about it");
+  item("photo math (also: solve this)","screenshot a math/physics problem and get a full step-by-step worked solution");
 
   head("Phone settings (Shizuku)");
   item("brightness 0-100 / brightness auto","screen brightness");

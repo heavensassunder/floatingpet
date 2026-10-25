@@ -168,6 +168,7 @@ public class Phone {
    String qn=low.length()>5?t.substring(Math.min(5,t.length())).trim():"";
    look(qn.isEmpty()?"What is on my screen? Answer briefly.":qn); return true;
   }
+  if(low.equals("photo math")||low.equals("math photo")||low.equals("math shot")||low.equals("solve this")){ photoMath(); return true; }
   if(low.startsWith("brightness ")){
    String a=low.substring(11).trim();
    if(a.equals("auto")){ act("settings put system screen_brightness_mode 1","auto brightness on",false); return true; }
@@ -210,25 +211,48 @@ public class Phone {
  }
 
  // ---------- screenshot + vision ----------
- void look(final String question){
-  if(!Ai.hasKeys(s.sp)){ s.local("add an API key first bestie - OpenRouter or Gemini, either works",false); return; }
-  if(s.privateNow()){ s.local("that looks like a private app, I'll look away",true); return; }
+ interface ShotCb{ void done(File img); void fail(String err); }
+ // hides the chat, takes a screencap into app-private storage and hands back the file
+ void capture(final ShotCb cb){
+  if(s.privateNow()){ cb.fail("that looks like a private app, I'll look away"); return; }
   File dir=s.getExternalFilesDir(null);
-  if(dir==null){ s.local("I have no storage to keep a screenshot in",false); return; }
+  if(dir==null){ cb.fail("I have no storage to keep a screenshot in"); return; }
   dir.mkdirs();
   final File img=new File(dir,"look.png");
   s.slimeView.say("looking...");
   hideThen(new Runnable(){ public void run(){
    String p=img.getAbsolutePath();
    sh.rish("screencap -p '"+q(p)+"' && chmod 666 '"+q(p)+"'",new Shell.Result(){ public void done(int code,String out,String err,String info){
-    if(info!=null||code!=0){ s.showChat(); s.local(info!=null?info:"screencap failed: "+clip(err),false); return; }
-    Evo.award(s,"shot",3,3);
+    if(info!=null||code!=0) cb.fail(info!=null?info:"screencap failed: "+clip(err));
+    else { Evo.award(s,"shot",3,3); cb.done(img); }
+   }});
+  }});
+ }
+ void look(final String question){
+  if(!Ai.hasKeys(s.sp)){ s.local("add an API key first bestie - OpenRouter or Gemini, either works",false); return; }
+  capture(new ShotCb(){
+   public void fail(String e){ s.showChat(); s.local(e,false); }
+   public void done(final File img){
     Vision.ask(question,img,new Vision.Callback(){ public void onResult(String reply){
      try{ img.delete(); }catch(Exception e){ L.w("Phone",e); }
      s.showChat(); s.speak(reply);
      try{ s.mem.saveChat("look: "+question,reply); }catch(Exception e){ L.w("Phone",e); }
     }});
-   }});
-  }});
+   }
+  });
+ }
+ static final String MATH_PROMPT="This is a screenshot of a math, physics or circuits problem. Read the problem carefully, then solve it step by step: list what is given, show each working step on its own line, and end with the final answer clearly marked. Plain text only, no markdown.";
+ void photoMath(){
+  if(!Ai.hasKeys(s.sp)){ s.local("add an API key first bestie - OpenRouter or Gemini, either works",false); return; }
+  capture(new ShotCb(){
+   public void fail(String e){ s.showChat(); s.local(e,false); }
+   public void done(final File img){
+    Vision.ask(MATH_PROMPT,img,new Vision.Callback(){ public void onResult(String reply){
+     try{ img.delete(); }catch(Exception e){ L.w("Phone",e); }
+     s.showChat(); s.speak(reply);
+     try{ s.mem.saveChat("photo math",reply); }catch(Exception e){ L.w("Phone",e); }
+    }});
+   }
+  });
  }
 }
