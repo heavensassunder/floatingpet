@@ -92,7 +92,7 @@ public class MainService extends Service {
 
   device=new DeviceEvents(this); device.start();
   clipboard=new Clipboard(this); clipboard.attach();
-  Reminders.armAll(this);
+  Reminders.armAll(this); Briefing.arm(this);
   h.postDelayed(lifeTick,30000); wander.start();
   if(sp.getBoolean("listenOn",false)) h.postDelayed(new Runnable(){ public void run(){ ear.startContinuous(); }},1500);
   if(!as) h.postDelayed(new Runnable(){ public void run(){ slimeView.say("I'm awake!"); slimeView.bounceAnim(); }},1200);
@@ -266,6 +266,7 @@ public class MainService extends Service {
   needs.cheer(5f); Evo.touchDay(this);
   if(localCommand(low)) return;
   if(Reminders.handle(this,t,low)) return;
+  if(Briefing.handle(this,t,low)) return;
   if(phone!=null&&phone.handle(t,low)) return;
   if(extra!=null&&extra.handle(t,low)) return;
   if(Ai.handle(this,t,low)) return;
@@ -346,7 +347,10 @@ public class MainService extends Service {
  @Override public void onConfigurationChanged(android.content.res.Configuration cfg){ super.onConfigurationChanged(cfg); Walls.measure(this); h.postDelayed(new Runnable(){ public void run(){ clampPos(); updateViews(); }},400); }
  @Override public int onStartCommand(Intent in,int fl,int id){
   try{ if(instance==this&&slimeView!=null) Walls.recenter(this); }catch(Exception e){ L.w("MainService",e); }
-  try{ if(in!=null&&Reminders.ACTION.equals(in.getAction())) Reminders.fire(this,in.getIntExtra("id",-1)); }catch(Exception e){ L.w("MainService",e); }
+  try{ if(in!=null&&in.getAction()!=null){
+   if(Reminders.ACTION.equals(in.getAction())) Reminders.fire(this,in.getIntExtra("id",-1));
+   else if(Briefing.ACTION.equals(in.getAction())) Briefing.fire(this);
+  }}catch(Exception e){ L.w("MainService",e); }
   return START_STICKY;
  }
 }

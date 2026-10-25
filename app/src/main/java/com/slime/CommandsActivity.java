@@ -36,6 +36,9 @@ public class CommandsActivity extends Activity {
   item("remind me in 20 minutes to TEXT","also: in 3 hours, in 2 days - it pings and speaks when due");
   item("remind me tomorrow 7am to TEXT / remind me at 14:30 TEXT","clock times, am/pm supported, bare time means next occurrence");
   item("reminders / forget reminder N","list upcoming reminders, or remove one by its number");
+  head("Morning briefing and weather");
+  item("briefing 7am / briefing 6:30 / briefing off","daily spoken briefing: weather, unread pings, level and streak; 'briefing now' previews it");
+  item("weather / weather city Nairobi","current conditions from free Open-Meteo (no API key), or change the city");
   item("what do you remember","what it knows about you");
   item("forget all","wipe what it remembers");
   item("clear history","clear chat and notification history");
