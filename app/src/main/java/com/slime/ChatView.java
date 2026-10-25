@@ -2,6 +2,7 @@ package com.slime;
 import android.content.ClipData; import android.content.ClipboardManager; import android.content.Context; import android.graphics.Color; import android.graphics.Typeface;
 import android.graphics.drawable.Drawable; import android.graphics.drawable.GradientDrawable;
 import android.text.SpannableStringBuilder; import android.text.Spanned; import android.text.style.ForegroundColorSpan;
+import android.text.util.Linkify;
 import android.view.*; import android.view.inputmethod.EditorInfo; import android.view.inputmethod.InputMethodManager; import android.widget.*;
 import java.util.regex.Matcher; import java.util.regex.Pattern;
 public class ChatView extends LinearLayout {
@@ -97,7 +98,7 @@ public class ChatView extends LinearLayout {
   return g;
  }
  TextView bubbleTv(String text,boolean isUser){
-  TextView tv=new TextView(getContext()); tv.setText(text); tv.setTextSize(11.5f); tv.setPadding(12,8,12,8); tv.setMaxWidth(250);
+  TextView tv=new TextView(getContext()); tv.setAutoLinkMask(Linkify.ALL); tv.setText(text); tv.setTextSize(11.5f); tv.setPadding(12,8,12,8); tv.setMaxWidth(250);
   tv.setTextColor(isUser?Color.WHITE:Color.parseColor("#1B2631")); tv.setBackground(bg(isUser));
   LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,LinearLayout.LayoutParams.WRAP_CONTENT); lp.setMargins(0,4,0,4);
   tv.setLayoutParams(lp); tv.setOnLongClickListener(copier(text)); return tv;

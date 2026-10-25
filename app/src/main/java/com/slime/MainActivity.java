@@ -61,6 +61,11 @@ public class MainActivity extends Activity {
   btn("Termux app settings","#5D6D7E",new Runnable(){ public void run(){ open(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:com.termux"))); }});
   btn("Battery optimisation list","#5D6D7E",new Runnable(){ public void run(){ open(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)); }});
 
+  head("About SlimeDroid");
+  note("Created by heavens assunder. Free and open source, built entirely in Termux - no paid APIs, ever. Say 'about' in chat for the same links.");
+  btn("WhatsApp the creator: +254 769 204848","#25D366",new Runnable(){ public void run(){ open(new Intent(Intent.ACTION_VIEW,Uri.parse("https://wa.me/254769204848"))); }});
+  btn("GitHub: heavensassunder/floatingpet","#5D6D7E",new Runnable(){ public void run(){ open(new Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/heavensassunder/floatingpet"))); }});
+
   setContentView(sv);
  }
  @Override protected void onResume(){ super.onResume(); refresh(); }

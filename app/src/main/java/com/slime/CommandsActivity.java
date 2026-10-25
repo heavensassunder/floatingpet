@@ -14,12 +14,12 @@ public class CommandsActivity extends Activity {
   text("Type these in the slime chat (long-press the slime to open it, or tap the Cmds button). Words in CAPS are things you fill in.",13f,"#AEB6BF",false,6);
 
   head("Gestures and buttons");
-  item("tap the slime","its mood changes and it dashes away");
-  item("poke it 4 times","it gets annoyed");
+  item("tap the slime","its mood changes and it dashes away");  item("poke it 4 times","it gets annoyed");
   item("drag","move it anywhere");
   item("long-press","open or close the chat");
   item("double-tap","close the pet");
   item("buttons","Send, See (read my screen), TTS (voice on/off), Hist (history), X, and quick buttons Feed, Play, Clip, Catch up, Shh, Status, Cmds");
+  item("about","who made SlimeDroid, with the creator's WhatsApp and GitHub links");
 
   head("Pet life");
   item("feed","give it a snack");
