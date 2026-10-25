@@ -100,6 +100,15 @@ public class Ai {
    GeminiClient.diagnose(new GeminiClient.DiagCb(){ public void done(String report){ s.showChat(); s.local(report,false); } });
    return true;
   }
+  if(low.equals("search")||low.equals("google")){ s.local("search what? e.g. 'search who won last night's match'",false); return true; }
+  if(low.startsWith("search ")||low.startsWith("google ")){
+   String q=t.substring(t.indexOf(' ')+1).trim();
+   if(Keys.all(s.sp,Keys.G).isEmpty()){ s.local("live web search uses Google Gemini's search tool and needs a Gemini key - add one free at aistudio.google.com/apikey, then ask again.",false); return true; }
+   s.local("searching the live web...",false);
+   String sys="You are SlimeDroid answering with Google web search. Use current web facts, stay friendly, answer in 2-4 short plain-text sentences, no markup.";
+   GeminiClient.search(sys,q,new Ai.Callback(){ public void onResult(String reply){ s.showChat(); s.local(reply,false); }});
+   return true;
+  }
   return false;
  }
  // free the local server's RAM and wake lock whenever we move back to a cloud provider

@@ -48,6 +48,10 @@ public class GeminiClient {
  static volatile String lastError="";
  // one HTTP call; code[0] carries the HTTP status. think=false omits thinkingConfig for 400 retries.
  static String once(String key,String model,String system,String user,int[] code,boolean think) throws Exception{
+  return once(key,model,system,user,code,think,false);
+ }
+ // search=true attaches Google Search grounding so answers use current web facts (free on flash-lite).
+ static String once(String key,String model,String system,String user,int[] code,boolean think,boolean search) throws Exception{
   JSONObject body=new JSONObject();
   if(system!=null&&!system.isEmpty()){
    JSONObject si=new JSONObject(); JSONArray sp=new JSONArray(); sp.put(new JSONObject().put("text",system)); si.put("parts",sp); body.put("systemInstruction",si);
@@ -61,6 +65,12 @@ public class GeminiClient {
   cfg.put("maxOutputTokens",Math.max(700,maxTokensFor(user))); cfg.put("temperature",0.9);
   if(think&&model.contains("2.5")){ JSONObject tc=new JSONObject(); tc.put("thinkingBudget",0); cfg.put("thinkingConfig",tc); }
   body.put("generationConfig",cfg);
+  if(search){
+   JSONObject tool=new JSONObject();
+   // 3.x uses google_search; older 2.x projects only know google_search_retrieval
+   tool.put(model.contains("3.")?"google_search":"google_search_retrieval",new JSONObject());
+   JSONArray tools=new JSONArray(); tools.put(tool); body.put("tools",tools);
+  }
   String url="https://generativelanguage.googleapis.com/v1beta/models/"+URLEncoder.encode(model,"UTF-8")+":generateContent?key="+URLEncoder.encode(key,"UTF-8");
   HttpURLConnection c=(HttpURLConnection)new URL(url).openConnection();
   c.setRequestMethod("POST"); c.setRequestProperty("Content-Type","application/json"); c.setDoOutput(true);
@@ -195,6 +205,26 @@ public class GeminiClient {
  }
  private static void postDiag(final DiagCb cb,final String r){ new Handler(Looper.getMainLooper()).post(new Runnable(){ public void run(){ cb.done(r); }}); }
  public static void ask(String system,String user,Ai.Callback cb){ run(system,user,cb,false); }
+ // live web answer with Google Search grounding; falls back to a plain model call if the tool is rejected
+ public static void search(final String system,final String query,final Ai.Callback cb){
+  new Thread(new Runnable(){ public void run(){
+   String out;
+   try{
+    ArrayList<String> ks=Keys.all(prefs,Keys.G);
+    if(ks.isEmpty()){ post(cb,"live search needs a Gemini key - add one free at aistudio.google.com/apikey"); return; }
+    String key=Keys.current(prefs,Keys.G,ks);
+    int[] code={0};
+    String resp=once(key,model(),system,query,code,true,true);
+    if(code[0]<200||code[0]>=300){
+     // older projects/models reject the tool: retry the same question plainly
+     resp=once(key,model(),system,query,code,true,false);
+    }
+    out=interpret(code[0],resp);
+    if(out==null) out="my bad, brain buffered - say that again? ("+lastError+")";
+   }catch(Exception e){ out="net hiccup: "+clip(e.getMessage()); }
+   final String fr=out; post(cb,fr);
+  }}).start();
+ }
  public static void askAuto(String system,String user,Ai.Callback cb){
   try{ if(prefs!=null) prefs.edit().putInt("gaiauto_"+day(),usedAuto()+1).apply(); }catch(Exception e){ L.w("Gemini",e); }
   run(system,user,cb,false);
