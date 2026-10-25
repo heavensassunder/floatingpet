@@ -267,6 +267,7 @@ public class MainService extends Service {
   if(localCommand(low)) return;
   if(Reminders.handle(this,t,low)) return;
   if(Briefing.handle(this,t,low)) return;
+  if(Routines.handle(this,t,low)) return;
   if(phone!=null&&phone.handle(t,low)) return;
   if(extra!=null&&extra.handle(t,low)) return;
   if(Ai.handle(this,t,low)) return;

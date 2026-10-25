@@ -13,7 +13,13 @@ public class EyeService extends AccessibilityService {
  }
  @Override public void onServiceConnected(){ instance=this; }
  @Override public boolean onUnbind(Intent i){ instance=null; return super.onUnbind(i); }
- @Override public void onAccessibilityEvent(AccessibilityEvent e){}
+ @Override public void onAccessibilityEvent(AccessibilityEvent e){
+  try{
+   if(e.getEventType()==AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED&&e.getPackageName()!=null&&MainService.instance!=null){
+    Routines.onApp(MainService.instance,e.getPackageName().toString());
+   }
+  }catch(Exception ex){ L.w("EyeService",ex); }
+ }
  @Override public void onInterrupt(){}
  boolean privateRoot(AccessibilityNodeInfo root){ CharSequence pk=root.getPackageName(); return pk!=null&&isPrivate(pk.toString()); }
 

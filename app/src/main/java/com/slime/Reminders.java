@@ -34,7 +34,7 @@ class Reminders {
   if(!low.startsWith("remind")) return false;
   String body=low.replaceFirst("^remind( me)?( to)?\\s*","").trim();
   long at=parseAt(body);
-  String text=extractText(t,body);
+  String text=extractText(t);
   if(at<=0){ s.local("when? e.g. 'remind me in 20 minutes to call mum' or 'remind me tomorrow 7am to charge my power bank'",false); return true; }
   if(text.isEmpty()){ s.local("what should I remind you about? e.g. 'remind me in 20 minutes to stretch'",false); return true; }
   int id=s.sp.getInt(SEQ,0)+1; s.sp.edit().putInt(SEQ,id).apply();
@@ -93,7 +93,7 @@ class Reminders {
   if(low.contains("tomorrow")){ Calendar cal=Calendar.getInstance(); cal.add(Calendar.DAY_OF_MONTH,1); cal.set(Calendar.HOUR_OF_DAY,8); cal.set(Calendar.MINUTE,0); cal.set(Calendar.SECOND,0); cal.set(Calendar.MILLISECOND,0); return cal.getTimeInMillis(); }
   return 0;
  }
- static String extractText(String original,String lowBody){
+ static String extractText(String original){
   String txt=original.toLowerCase();
   txt=txt.replaceFirst("^remind( me)?( to)?\\s*","");
   boolean relative=REL.matcher(txt).find();
