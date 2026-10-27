@@ -51,6 +51,7 @@ public class CommandsActivity extends Activity {
   head("Pet look and feel");
   item("pet size 130 / pet size small | normal | big | huge","make the slime bigger or smaller (50% to 180%); 'pet bigger', 'pet smaller' step it, 'pet size reset' restores 100%");
   item("wander on / wander off (also: stay / walk around)","off makes the slime stay put until you drag it; on lets it roam by itself. 'wander status' shows the current mode");
+  item("pet opacity N / chat opacity N","transparency of the slime or the chat box, 10 (nearly invisible) to 100 (solid), e.g. 'chat opacity 75'; add 'reset' to restore");
   item("what do you remember","what it knows about you");
   item("forget all","wipe what it remembers");
   item("clear history","clear chat and notification history");

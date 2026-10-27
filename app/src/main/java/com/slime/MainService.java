@@ -39,6 +39,7 @@ public class MainService extends Service {
   try{ wm.addView(slimeView,p1); wm.addView(chatView,p2); }catch(Exception e){ Toast.makeText(this,"Allow overlay first",Toast.LENGTH_LONG).show(); stopSelf(); return; }
   instance=this;
   Appearance.applySize(this);
+  Appearance.applyAlpha(this);
   Walls.measure(this); phone=new Phone(this); phone.start(); extra=new Extra(this); vibe=new Vibe(this); vibe.start(); guard=new Guard(this); h.postDelayed(guard,1200); wander=new Wander(this); notifs=new Notifs(this);
   boolean as=asleep(); needs.tick(as,isCharging()); slimeView.setMood(needs.mood(as));
 
