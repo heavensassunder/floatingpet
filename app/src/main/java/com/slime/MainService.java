@@ -38,6 +38,7 @@ public class MainService extends Service {
   p2.gravity=Gravity.TOP|Gravity.START; p2.softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING; chatView.onKeyboard=new Runnable(){ public void run(){ updateViews(); }}; placeChat(); chatView.setVisibility(View.GONE);
   try{ wm.addView(slimeView,p1); wm.addView(chatView,p2); }catch(Exception e){ Toast.makeText(this,"Allow overlay first",Toast.LENGTH_LONG).show(); stopSelf(); return; }
   instance=this;
+  Appearance.applySize(this);
   Walls.measure(this); phone=new Phone(this); phone.start(); extra=new Extra(this); vibe=new Vibe(this); vibe.start(); guard=new Guard(this); h.postDelayed(guard,1200); wander=new Wander(this); notifs=new Notifs(this);
   boolean as=asleep(); needs.tick(as,isCharging()); slimeView.setMood(needs.mood(as));
 
@@ -115,7 +116,7 @@ public class MainService extends Service {
   p2.x=Math.max(0,Math.min(p1.x+(SW-340)/2,sw-340));
   int above=p1.y-CHAT_H;
   if(above>=0) p2.y=above;
-  else p2.y=Math.max(0,Math.min(p1.y+SH-10,sh-CHAT_H-20));
+  else p2.y=Math.max(0,Math.min(p1.y+p1.height-10,sh-CHAT_H-20));
   if(chatView.kb) p2.y=Walls.area(this).top;
  }
 
@@ -269,6 +270,7 @@ public class MainService extends Service {
   if(Reminders.handle(this,t,low)) return;
   if(Briefing.handle(this,t,low)) return;
   if(Routines.handle(this,t,low)) return;
+  if(Appearance.handle(this,t,low)) return;
   if(phone!=null&&phone.handle(t,low)) return;
   if(extra!=null&&extra.handle(t,low)) return;
   if(Ai.handle(this,t,low)) return;
