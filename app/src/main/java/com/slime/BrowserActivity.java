@@ -19,6 +19,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 import java.net.URLEncoder;
 // A self-contained full-screen browser: address bar with Google search fallback, history
 // navigation, reload, home (Google) and a progress bar. Everything stays inside the WebView.
