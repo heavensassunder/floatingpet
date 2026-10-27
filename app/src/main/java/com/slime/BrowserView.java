@@ -15,18 +15,26 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.Toast;
 import java.net.URLEncoder;
+import java.util.TreeSet;
 // A compact Via-style browser that lives INSIDE the overlay system, like the chat box:
 // slim top toolbar, address bar with Google search fallback, and a WebView underneath.
 // It floats over other apps without leaving them and never takes the full screen.
+// Remembers the last page (resumes on reopen, X only hides) and keeps bookmarks.
 class BrowserView extends LinearLayout {
  static final String HOME="https://www.google.com";
+ static final String PREF_LAST_URL="browser_last_url";
+ static final String PREF_BOOKMARKS="browser_bookmarks";
  final MainService s; WindowManager.LayoutParams lp;
- WebView web; EditText addr; ProgressBar prog; Button backBtn,fwdBtn; LinearLayout toolbar;
+ WebView web; EditText addr; ProgressBar prog; Button backBtn,fwdBtn,star; LinearLayout toolbar;
+ TreeSet<String> bookmarks=new TreeSet<>();
  BrowserView(MainService s){
   super(s); this.s=s;
   float d=s.getResources().getDisplayMetrics().density;
@@ -38,6 +46,7 @@ class BrowserView extends LinearLayout {
   backBtn=tool(d,"<"); fwdBtn=tool(d,">"); Button reload=tool(d,"\u21BB"); Button home=tool(d,"H"); Button close=tool(d,"X");
   close.setBackground(round("#E74C3C",10f,d));
   toolbar.addView(backBtn); toolbar.addView(fwdBtn); toolbar.addView(reload); toolbar.addView(home);
+  star=tool(d,"☆"); star.setTag(0); toolbar.addView(star);
   addr=new EditText(s); addr.setSingleLine(true); addr.setTextSize(12f); addr.setTextColor(Color.parseColor("#1B2631"));
   addr.setHintTextColor(Color.parseColor("#7F8C8D")); addr.setHint("Search Google or type URL");
   addr.setBackground(round("#FFFFFF",10f,d)); addr.setPadding((int)(10*d),(int)(6*d),(int)(10*d),(int)(6*d));
@@ -57,7 +66,7 @@ class BrowserView extends LinearLayout {
   web.setWebViewClient(new WebViewClient(){
    @Override public boolean shouldOverrideUrlLoading(WebView v,WebResourceRequest req){ return false; }
    @Override public void onPageStarted(WebView v,String url,android.graphics.Bitmap fav){ addr.setText(url); updateNav(); }
-   @Override public void onPageFinished(WebView v,String url){ addr.setText(url); updateNav(); }
+   @Override public void onPageFinished(WebView v,String url){ addr.setText(url); updateNav(); saveLastUrl(url); refreshStar(); }
   });
   web.setWebChromeClient(new WebChromeClient(){
    @Override public void onProgressChanged(WebView v,int p){ prog.setProgress(p); prog.setVisibility(p>=100?GONE:VISIBLE); }
@@ -72,6 +81,9 @@ class BrowserView extends LinearLayout {
   go.setOnClickListener(new OnClickListener(){ public void onClick(View v){ submit(); }});
   addr.setOnEditorActionListener(new android.widget.TextView.OnEditorActionListener(){ public boolean onEditorAction(android.widget.TextView v,int action,KeyEvent e){ submit(); return true; }});
   enableDrag(d);
+  loadBookmarks();
+  star.setOnClickListener(new OnClickListener(){ public void onClick(View v){ toggleBookmark(web.getUrl()); } });
+  star.setOnLongClickListener(new OnLongClickListener(){ public boolean onLongClick(View v){ showBookmarks(); return true; } });
  }
  Button tool(float d,String label){
   Button b=new Button(s); b.setText(label); b.setAllCaps(false); b.setTextSize(12f); b.setTextColor(Color.WHITE);
@@ -119,7 +131,29 @@ class BrowserView extends LinearLayout {
   backBtn.setEnabled(web.canGoBack()); fwdBtn.setEnabled(web.canGoForward());
   backBtn.setAlpha(web.canGoBack()?1f:0.4f); fwdBtn.setAlpha(web.canGoForward()?1f:0.4f);
  }
- void open(String url){ web.loadUrl(resolve(url==null?"":url)); }
+ void open(String url){
+  String u=url==null?"":url.trim();
+  if(u.isEmpty()){ u=loadLastUrl(); if(u==null||u.isEmpty()) u=HOME; }
+  web.loadUrl(resolve(u));
+ }
  boolean goBack(){ if(web.canGoBack()){ web.goBack(); return true; } return false; }
  void destroy(){ try{ ((ViewGroup)web.getParent()).removeView(web); web.destroy(); }catch(Exception e){ L.w("BrowserView",e); } }
+ void saveLastUrl(String u){ if(u==null)return; s.sp.edit().putString(PREF_LAST_URL,u).apply(); }
+ String loadLastUrl(){ return s.sp.getString(PREF_LAST_URL,null); }
+ void loadBookmarks(){ bookmarks.clear(); bookmarks.addAll(s.sp.getStringSet(PREF_BOOKMARKS,new TreeSet<String>())); }
+ void persistBookmarks(){ s.sp.edit().putStringSet(PREF_BOOKMARKS,bookmarks).apply(); }
+ boolean isBookmarked(String u){ return u!=null&&bookmarks.contains(u); }
+ void refreshStar(){ star.setText(isBookmarked(web.getUrl())?"★":"☆"); }
+ void toggleBookmark(String u){
+  if(u==null||u.isEmpty()||u.equals("about:blank"))return;
+  if(bookmarks.contains(u)){ bookmarks.remove(u); } else { bookmarks.add(u); }
+  persistBookmarks(); refreshStar();
+ }
+ void showBookmarks(){
+  if(bookmarks.isEmpty()){ Toast.makeText(s,"no bookmarks yet",Toast.LENGTH_SHORT).show(); return; }
+  final String[] items=bookmarks.toArray(new String[0]);
+  new AlertDialog.Builder(s).setTitle("Bookmarks").setItems(items,new DialogInterface.OnClickListener(){
+   public void onClick(DialogInterface d,int which){ web.loadUrl(items[which]); }
+  }).show();
+ }
 }
