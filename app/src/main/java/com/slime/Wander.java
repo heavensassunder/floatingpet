@@ -14,6 +14,7 @@ class Wander {
 
  void step(){
   long now=System.currentTimeMillis();
+  if(!s.sp.getBoolean("wander",true)) return; // static mode: only drags, pokes and 'play' move it
   if(s.chatView.getVisibility()==View.VISIBLE||now-s.lastTouch<8000) return;
   if(anim!=null&&anim.isRunning()) return;
   if(!s.screenOn()) return;

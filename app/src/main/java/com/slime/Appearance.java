@@ -26,6 +26,7 @@ class Appearance {
   if(low.equals("pet size reset")){ s.sp.edit().putFloat(PREF_SCALE,1f).apply(); applySize(s); s.local("pet back to normal size (100%)",false); return true; }
   if(low.equals("pet bigger")||low.equals("pet larger")){ setScale(s,Math.min(MAX_SCALE,scale(s.sp)+0.15f)); return true; }
   if(low.equals("pet smaller")){ setScale(s,Math.max(MIN_SCALE,scale(s.sp)-0.15f)); return true; }
+  if(handleWander(s,low)) return true;
   if(low.startsWith("pet size ")){
    String arg=low.substring(9).trim();
    if(arg.equals("small")){ setScale(s,0.7f); return true; }
@@ -44,5 +45,18 @@ class Appearance {
   k=Math.max(MIN_SCALE,Math.min(MAX_SCALE,k));
   s.sp.edit().putFloat(PREF_SCALE,k).apply(); applySize(s);
   s.local("pet size now "+Math.round(k*100)+"%",false);
+ }
+
+ static boolean handleWander(MainService s,String low){
+  low=low.trim();
+  if(low.equals("wander status")){ s.local("wandering is "+(s.sp.getBoolean("wander",true)?"on (I roam by myself)":"off (I stay put until you drag me)"),false); return true; }
+  if(low.equals("wander on")||low.equals("walk around")||low.equals("pet walk")){ setWander(s,true); return true; }
+  if(low.equals("wander off")||low.equals("stay")||low.equals("stay still")||low.equals("pet static")){ setWander(s,false); return true; }
+  return false;
+ }
+ static void setWander(MainService s,boolean on){
+  s.sp.edit().putBoolean("wander",on).apply();
+  if(!on&&s.wander!=null) s.wander.cancel();
+  s.local(on?"ok, I'll roam around the screen again":"ok, I'll stay right here until you drag me (pokes and 'play' still work)",false);
  }
 }
