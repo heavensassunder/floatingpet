@@ -63,7 +63,7 @@ class BrowserView extends LinearLayout {
   st.setJavaScriptEnabled(true); st.setDomStorageEnabled(true); st.setDatabaseEnabled(true);
   st.setUseWideViewPort(false);
   st.setLoadWithOverviewMode(true);
-  try{ st.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.NARROW_COLUMNS); }catch(Exception e){ L.w("BrowserView","layout algo",e); }
+  try{ st.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.NARROW_COLUMNS); }catch(Exception e){ L.w("BrowserView",e); }
   st.setSupportZoom(true); st.setBuiltInZoomControls(true); st.setDisplayZoomControls(false);
   web.setWebViewClient(new WebViewClient(){
    @Override public boolean shouldOverrideUrlLoading(WebView v,WebResourceRequest req){ return false; }
