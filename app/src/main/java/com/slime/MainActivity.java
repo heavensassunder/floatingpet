@@ -55,6 +55,7 @@ public class MainActivity extends Activity {
   head("Learn more");
   btn("Read the guide","#AF7AC5",new Runnable(){ public void run(){ startActivity(new Intent(MainActivity.this,GuideActivity.class)); }});
   btn("All commands","#5D6D7E",new Runnable(){ public void run(){ startActivity(new Intent(MainActivity.this,CommandsActivity.class)); }});
+  btn("Open the slime browser (Google, any site)","#1E8E3E",new Runnable(){ public void run(){ BrowserActivity.open(MainActivity.this,""); }});
 
   head("Phone control helpers (optional)");
   note("For commands that use Shizuku and Termux. Termux must be allowed to run in the background: set its battery to unrestricted and read guide section 14.");

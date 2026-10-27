@@ -234,6 +234,10 @@ public class MainService extends Service {
  boolean localCommand(String low){
   long now=System.currentTimeMillis();
   if(low.equals("help")||low.equals("commands")){ Vibe.showHelp(this); return true; }
+  if(low.equals("browser")||low.equals("open browser")||low.equals("web browser")){ BrowserActivity.open(this,""); return true; }
+  if(low.startsWith("browse ")||low.startsWith("browser ")||low.startsWith("web ")){
+   BrowserActivity.open(this,t.substring(t.indexOf(' ')+1).trim()); return true;
+  }
   if(low.equals("about")){ local("SlimeDroid - a free, open-source phone pet by heavens assunder.\nWhatsApp: https://wa.me/254769204848\nGitHub: https://github.com/heavensassunder/floatingpet",false); return true; }
   if(low.equals("status")||low.equals("stats")){ local(Evo.line(this)+" | food "+(int)needs.food+" | energy "+(int)needs.energy+" | joy "+(int)needs.joy+" | battery "+batteryLevel()+"% | "+Ai.provider(sp)+" "+Ai.budget()+" | "+Ai.currentModelName(),false); return true; }
   if(low.equals("feed")||low.equals("feed slime")||low.equals("snack")){

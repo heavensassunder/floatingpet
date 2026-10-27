@@ -82,6 +82,9 @@ public class GuideActivity extends Activity {
   sec("22. About and contacting the creator",
    "SlimeDroid is free and open source, created by heavens assunder, and built entirely in Termux with no paid APIs - everything it does runs on free tiers or on the phone itself.\n\nContact or follow the project:\n- WhatsApp: +254 769 204848, or open wa.me/254769204848 (there is a green WhatsApp button at the bottom of the home screen).\n- GitHub repository: github.com/heavensassunder/floatingpet - all the source code, the Termux build script and issue reports live there.\n- In chat, say 'about' to see the links as tappable text.");
 
+  sec("23. The built-in browser",
+   "SlimeDroid carries its own full browser, so you never have to leave the app.\n\nOpen it with the green 'Web' button in the chat's quick row, the 'Open the slime browser' button on the home screen, or by saying 'browser'. Saying 'browse wikipedia.org' opens it directly on a site, and 'web kenya news' runs a Google search straight away.\n\nThe toolbar has back, forward, reload and home buttons (home is Google), and the address bar takes either a URL (anything with a dot is treated as a domain) or plain words, which become a Google search. Pinch to zoom works, the loading progress shows under the address bar, and the phone's back button walks through browser history before closing it. Rotating the screen keeps the current page.");
+
   setContentView(sv);
  }
  TextView text(String s,float size,String color,boolean bold,int topDp){

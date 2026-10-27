@@ -20,6 +20,9 @@ public class CommandsActivity extends Activity {
   item("double-tap","close the pet");
   item("buttons","Send, See (read my screen), TTS (voice on/off), Hist (history), X, and quick buttons Feed, Play, Clip, Catch up, Shh, Status, Cmds");
   item("about","who made SlimeDroid, with the creator's WhatsApp and GitHub links");
+  head("Built-in browser");
+  item("browser / web","open the full-screen slime browser (or tap the Web button in chat); home page is Google");
+  item("browse URL / web SEARCH","open the browser straight at a site, e.g. 'browse wikipedia.org', or run a Google search");
 
   head("Pet life");
   item("feed","give it a snack");

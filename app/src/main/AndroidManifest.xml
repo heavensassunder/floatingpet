@@ -26,5 +26,6 @@
   </intent-filter></receiver>
  <activity android:name=".CommandsActivity" android:label="SlimeDroid commands"/>
 <activity android:name=".GuideActivity" android:label="SlimeDroid guide"/>
+<activity android:name=".BrowserActivity" android:label="SlimeBrowser" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
 </application>
 </manifest>
