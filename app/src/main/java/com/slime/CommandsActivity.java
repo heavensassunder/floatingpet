@@ -14,12 +14,15 @@ public class CommandsActivity extends Activity {
   text("Type these in the slime chat (long-press the slime to open it, or tap the Cmds button). Words in CAPS are things you fill in.",13f,"#AEB6BF",false,6);
 
   head("Gestures and buttons");
-  item("tap the slime","its mood changes and it dashes away");
-  item("poke it 4 times","it gets annoyed");
+  item("tap the slime","its mood changes and it dashes away");  item("poke it 4 times","it gets annoyed");
   item("drag","move it anywhere");
   item("long-press","open or close the chat");
   item("double-tap","close the pet");
   item("buttons","Send, See (read my screen), TTS (voice on/off), Hist (history), X, and quick buttons Feed, Play, Clip, Catch up, Shh, Status, Cmds");
+  item("about","who made SlimeDroid, with the creator's WhatsApp and GitHub links");
+  head("Floating browser panel");
+  item("browser / web","open the compact browser panel inside the chat overlay (or tap the Web button); it floats over other apps and never leaves what you're doing. X or 'close browser' shuts it");
+  item("browse URL / web SEARCH","open the panel straight at a site, e.g. 'browse wikipedia.org', or run a Google search; drag its top bar to move it");
 
   head("Pet life");
   item("feed","give it a snack");
@@ -32,6 +35,23 @@ public class CommandsActivity extends Activity {
   item("wake up","keep it awake for 5 hours");
   item("pings on / pings off","bubbles for new notifications");
   item("catch me up","summary of your recent notifications");
+  head("Reminders");
+  item("remind me in 20 minutes to TEXT","also: in 3 hours, in 2 days - it pings and speaks when due");
+  item("remind me tomorrow 7am to TEXT / remind me at 14:30 TEXT","clock times, am/pm supported, bare time means next occurrence");
+  item("reminders / forget reminder N","list upcoming reminders, or remove one by its number");
+  head("Morning briefing and weather");
+  item("briefing 7am / briefing 6:30 / briefing off","daily spoken briefing: weather, unread pings, level and streak; 'briefing now' previews it");
+  item("weather / weather city Nairobi","current conditions from free Open-Meteo (no API key), or change the city");
+  head("Routines (your own if-this-then-that rules)");
+  item("when I open APP then ACTION","runs the action whenever that app comes to the foreground, e.g. when I open tiktok then shh");
+  item("when charging then ACTION / when I unplug then ACTION","power connect and disconnect triggers");
+  item("when headphones connect then ACTION / when headphones disconnect then ACTION","headset plug triggers, e.g. then tts off");
+  item("when I unlock then ACTION","runs every time you unlock the phone; 'then say good morning' works too");
+  item("routines / forget routine N","list your rules, or remove one by its number");
+  head("Pet look and feel");
+  item("pet size 130 / pet size small | normal | big | huge","make the slime bigger or smaller (50% to 180%); 'pet bigger', 'pet smaller' step it, 'pet size reset' restores 100%");
+  item("wander on / wander off (also: stay / walk around)","off makes the slime stay put until you drag it; on lets it roam by itself. 'wander status' shows the current mode");
+  item("pet opacity N / chat opacity N","transparency of the slime or the chat box, 10 (nearly invisible) to 100 (solid), e.g. 'chat opacity 75'; add 'reset' to restore");
   item("what do you remember","what it knows about you");
   item("forget all","wipe what it remembers");
   item("clear history","clear chat and notification history");
@@ -64,9 +84,12 @@ public class CommandsActivity extends Activity {
   item("key add KEY / key remove N / key next","manage OpenRouter keys; I switch by myself when one runs out");
   item("gemini keys","list your Google AI Studio keys");
   item("gemini key add KEY / gemini key remove N / gemini key next","manage Gemini keys the same way");
+  item("gemini key reset / key reset","clear parked-key marks after a minute-level rate limit or once quota resets");
   item("gemini model NAME / gemini models / gemini model reset","pin a Gemini model, list what your key can use, or restore the default");
-  head("Offline brain (no internet, runs in Termux)");
-  item("offline download smol | qwen | all","download a small on-device GGUF model (~400-500 MB each), installs llama.cpp too");
+  item("gemini diagnose","live test call showing the HTTP code, raw Google response and parse result");
+  item("search QUESTION / google QUESTION","live web answer via Gemini Google Search grounding (needs a Gemini key; free, shares the flash-lite pool)");
+  head("Offline brain (no internet, runs in Termux; 64-bit devices only)");
+  item("offline download smol | qwen | all","download a small on-device GGUF model (~400-500 MB each), installs llama.cpp too; 32-bit phones are told they can't");
   item("use offline / use gemini / use openrouter","switch provider, or just tap the AI button in the chat");
   item("offline status","download progress, server state, free RAM and disk");
   item("offline model smol | qwen","pick SmolLM2-360M (fast) or Qwen3-0.6B (better Swahili)");
@@ -127,6 +150,7 @@ public class CommandsActivity extends Activity {
   item("fg","which app is on screen");
   item("shot","save a screenshot to Pictures");
   item("look QUESTION","screenshot, then the slime answers about it");
+  item("photo math (also: solve this)","screenshot a math/physics problem and get a full step-by-step worked solution");
 
   head("Phone settings (Shizuku)");
   item("brightness 0-100 / brightness auto","screen brightness");

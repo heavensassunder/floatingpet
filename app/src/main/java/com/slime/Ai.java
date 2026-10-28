@@ -18,19 +18,25 @@ public class Ai {
  public static void ask(String system,String user,Callback cb){
   SharedPreferences sp=OpenRouterClient.prefs;
   String p=provider(sp);
-  if(OFFLINE.equals(p)){ LocalLlm.ask(system,user,cb); return; }
+  if(OFFLINE.equals(p)){
+   if(!LocalLlm.arch64()){ cb.onResult(LocalLlm.ARCH_MSG); return; }
+   LocalLlm.ask(system,user,cb); return;
+  }
   if(GEMINI.equals(p)){
    if(Keys.all(sp,Keys.G).isEmpty()){ cb.onResult("no Gemini keys yet: add one on the home screen, or say gemini key add YOURKEY (or switch back with: use openrouter)"); return; }
    GeminiClient.ask(system,user,cb);
   } else OpenRouterClient.ask(OpenRouterClient.currentKey(""),system,user,cb);
  }
- // the slime's own unprompted calls never run on the local model (heat/battery on small phones)
+ // the slime's own unprompted calls never run on the local model (heat/battery on small phones).
+ // while Gemini is selected they also avoid its tiny free daily pool and use OpenRouter instead,
+ // so the Gemini quota is spent only on messages the user actually sends.
  public static void askAuto(String system,String user,Callback cb){
   SharedPreferences sp=OpenRouterClient.prefs;
-  if(OFFLINE.equals(provider(sp))){ cb.onResult(null); return; }
-  if(GEMINI.equals(provider(sp))){
-   if(Keys.all(sp,Keys.G).isEmpty()){ cb.onResult(null); return; }
-   GeminiClient.askAuto(system,user,cb);
+  String p=provider(sp);
+  if(OFFLINE.equals(p)){ cb.onResult(null); return; }
+  if(GEMINI.equals(p)){
+   if(!Keys.all(sp,Keys.OR).isEmpty()){ OpenRouterClient.askAuto(OpenRouterClient.currentKey(""),system,user,cb); return; }
+   cb.onResult(null); // no OpenRouter fallback: stay quiet rather than burn the Gemini daily limit
   } else OpenRouterClient.askAuto(OpenRouterClient.currentKey(""),system,user,cb);
  }
  public static String budget(){
@@ -59,10 +65,12 @@ public class Ai {
    StringBuilder sb=new StringBuilder("AI provider: "+provider(s.sp));
    sb.append("\nOpenRouter keys: ").append(Keys.all(s.sp,Keys.OR).size()).append(" | Gemini keys: ").append(Keys.all(s.sp,Keys.G).size());
    sb.append("\ntoday: ").append(budget()).append(", model: ").append(currentModelName());
+   if(GEMINI.equals(provider(s.sp))) sb.append("\nGemini free limits are set per Google project (see AI Studio); same-account keys share one pool. My own chatter uses OpenRouter to save your Gemini quota.");
    sb.append("\nswitch with: use gemini | use openrouter | use offline (or tap the AI button)");
    s.showChat(); s.local(sb.toString(),false); return true;
   }
   if(low.equals("use offline")||low.equals("ai provider offline")||low.equals("offline provider")){
+   if(!LocalLlm.arch64()){ s.local(LocalLlm.ARCH_MSG,false); return true; }
    s.sp.edit().putString("aiProvider",OFFLINE).apply();
    s.local("now using the offline brain ("+LocalLlm.modelId()+"). First message loads llama.cpp in Termux; no internet needed after that. Say 'offline status' anytime.",true); return true;
   }
@@ -79,12 +87,26 @@ public class Ai {
   if(low.startsWith("gemini model ")){
    String nm=t.substring(t.toLowerCase(java.util.Locale.US).indexOf("model ")+6).trim();
    if(nm.matches("[A-Za-z0-9._-]{3,80}")){ s.sp.edit().putString("gmodel",nm).apply(); s.local("Gemini model is now "+nm,false); }
-   else s.local("that doesn't look like a model name. example: gemini model gemini-2.5-flash-lite",false);
+   else s.local("that doesn't look like a model name. example: gemini model gemini-3.5-flash-lite",false);
    return true;
   }
   if(low.equals("gemini models")){
    s.local("asking Google which Gemini models your key can use...",false);
    GeminiClient.listModels(new GeminiClient.ListCb(){ public void done(String report){ s.showChat(); s.local(report,false); } });
+   return true;
+  }
+  if(low.equals("gemini diagnose")||low.equals("gemini test")){
+   s.local("running a live Gemini test call...",false);
+   GeminiClient.diagnose(new GeminiClient.DiagCb(){ public void done(String report){ s.showChat(); s.local(report,false); } });
+   return true;
+  }
+  if(low.equals("search")||low.equals("google")){ s.local("search what? e.g. 'search who won last night's match'",false); return true; }
+  if(low.startsWith("search ")||low.startsWith("google ")){
+   String q=t.substring(t.indexOf(' ')+1).trim();
+   if(Keys.all(s.sp,Keys.G).isEmpty()){ s.local("live web search uses Google Gemini's search tool and needs a Gemini key - add one free at aistudio.google.com/apikey, then ask again.",false); return true; }
+   s.local("searching the live web...",false);
+   String sys="You are SlimeDroid answering with Google web search. Use current web facts, stay friendly, answer in 2-4 short plain-text sentences, no markup.";
+   GeminiClient.search(sys,q,new Ai.Callback(){ public void onResult(String reply){ s.showChat(); s.local(reply,false); }});
    return true;
   }
   return false;

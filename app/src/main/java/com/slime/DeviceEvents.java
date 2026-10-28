@@ -42,6 +42,7 @@ class DeviceEvents {
  }
  void onUnlock(){
   long now=System.currentTimeMillis(); long last=s.sp.getLong("lastSeen",0); s.sp.edit().putLong("lastSeen",now).apply();
+  Routines.fire(s,"unlock",null);
   if(s.asleep()){ if(now-lastGreet>30*60000L){ lastGreet=now; s.react("huh? it's so late... sleep soon?",1,6000); } return; }
   long gone=last==0?0:now-last; String line=null;
   if(gone>5*3600000L) line=Lines.byTime(Calendar.getInstance().get(Calendar.HOUR_OF_DAY));
@@ -54,10 +55,10 @@ class DeviceEvents {
   rx=new BroadcastReceiver(){ public void onReceive(Context c,Intent i){
    if(isInitialStickyBroadcast()) return;
    String a=i.getAction(); if(a==null) return;
-   if(a.equals(Intent.ACTION_POWER_CONNECTED)){ s.needs.feed(10f); s.react(Lines.pick(Lines.PLUG),3,5000); }
-   else if(a.equals(Intent.ACTION_POWER_DISCONNECTED)){ s.react(Lines.pick(Lines.UNPLUG),0,4000); }
+   if(a.equals(Intent.ACTION_POWER_CONNECTED)){ s.needs.feed(10f); s.react(Lines.pick(Lines.PLUG),3,5000); Routines.fire(s,"charge",null); }
+   else if(a.equals(Intent.ACTION_POWER_DISCONNECTED)){ s.react(Lines.pick(Lines.UNPLUG),0,4000); Routines.fire(s,"unplug",null); }
    else if(a.equals(Intent.ACTION_BATTERY_LOW)){ s.react("battery low! "+s.batteryLevel()+"%",5,6000); }
-   else if(a.equals(Intent.ACTION_HEADSET_PLUG)){ int st=i.getIntExtra("state",0); if(st==1) s.react(Lines.pick(Lines.HEAD_ON),7,4000); else s.react(Lines.pick(Lines.HEAD_OFF),0,3000); }
+   else if(a.equals(Intent.ACTION_HEADSET_PLUG)){ int st=i.getIntExtra("state",0); if(st==1){ s.react(Lines.pick(Lines.HEAD_ON),7,4000); Routines.fire(s,"headon",null); } else { s.react(Lines.pick(Lines.HEAD_OFF),0,3000); Routines.fire(s,"headoff",null); } }
    else if(a.equals(Intent.ACTION_USER_PRESENT)){ onUnlock(); }
    else if(a.equals(Intent.ACTION_SCREEN_ON)){ startSensor(); if(s.ear!=null) s.ear.onScreenOn(); }
    else if(a.equals(Intent.ACTION_SCREEN_OFF)){ stopSensor(); if(s.ear!=null) s.ear.onScreenOff(); s.sp.edit().putLong("lastSeen",System.currentTimeMillis()).apply(); }

@@ -8,24 +8,21 @@ import org.json.JSONArray; import org.json.JSONObject;
 // Google AI Studio (Gemini) client. Keyless billing: free tier, multiple API keys pooled and rotated
 // exactly like OpenRouter. Endpoint: generativelanguage.googleapis.com v1beta generateContent.
 public class GeminiClient {
- public static final String DEFAULT_MODEL="gemini-2.5-flash";
- // tried in order when the pinned model answers 404/400 (model names get retired between API versions)
- static final String[] FALLBACK={"gemini-2.5-flash","gemini-2.5-flash-lite","gemini-2.0-flash","gemini-1.5-flash"};
+ // flash-lite keeps the large free allowance (~500 RPD); full flash is cut to ~20 RPD on free projects
+ public static final String DEFAULT_MODEL="gemini-3.5-flash-lite";
+ static final String RATE_MIN_PREFIX="RATE_MIN:"; // internal marker: per-minute burst, retryable without benching the key
+ // tried in order when the pinned model answers 404/400 (Google retires model names for new projects; 2.5 names still work on older ones)
+ static final String[] FALLBACK={"gemini-3.5-flash-lite","gemini-3.1-flash-lite","gemini-2.5-flash-lite","gemini-2.5-flash"};
  static SharedPreferences prefs;
  static String day(){ return new SimpleDateFormat("yyyyMMdd",Locale.US).format(new Date()); }
  static String model(){ return prefs==null?DEFAULT_MODEL:prefs.getString("gmodel",DEFAULT_MODEL); }
  static int keyCount(){ try{ return prefs==null?0:Keys.all(prefs,Keys.G).size(); }catch(Exception e){ return 0; } }
  static int used(){ try{ return prefs==null?0:prefs.getInt("gai_"+day(),0); }catch(Exception e){ return 0; } }
  static int usedAuto(){ try{ return prefs==null?0:prefs.getInt("gaiauto_"+day(),0); }catch(Exception e){ return 0; } }
- // free-tier requests-per-day per key depend on the model family
- static int capPerKey(){
-  String m=model().toLowerCase(Locale.US);
-  if(m.contains("1.5")) return 1500;
-  if(m.contains("lite")||m.contains("2.0")) return 1000;
-  return 250; // gemini 2.5 flash free tier
- }
- public static String budget(){ int n=Math.max(1,keyCount()); return used()+"/"+(capPerKey()*n); }
- public static boolean autoOk(){ int n=Math.max(1,keyCount()); return used()<(capPerKey()-30)*n&&usedAuto()<8*n; }
+ // Google no longer publishes fixed free-tier numbers; limits are per project and shown only in AI Studio.
+ public static String budget(){ return used()+" req today (Google sets the limit)"; }
+ // the slime's own calls are rationed locally; user messages are never blocked by this
+ public static boolean autoOk(){ return usedAuto()<6; }
  static void countCall(String k){
   try{
    if(prefs==null) return;
@@ -48,8 +45,13 @@ public class GeminiClient {
   while((l=br.readLine())!=null) sb.append(l);
   br.close(); return sb.toString();
  }
- // one HTTP call; code[0] carries the HTTP status
- static String once(String key,String model,String system,String user,int[] code) throws Exception{
+ static volatile String lastError="";
+ // one HTTP call; code[0] carries the HTTP status. think=false omits thinkingConfig for 400 retries.
+ static String once(String key,String model,String system,String user,int[] code,boolean think) throws Exception{
+  return once(key,model,system,user,code,think,false);
+ }
+ // search=true attaches Google Search grounding so answers use current web facts (free on flash-lite).
+ static String once(String key,String model,String system,String user,int[] code,boolean think,boolean search) throws Exception{
   JSONObject body=new JSONObject();
   if(system!=null&&!system.isEmpty()){
    JSONObject si=new JSONObject(); JSONArray sp=new JSONArray(); sp.put(new JSONObject().put("text",system)); si.put("parts",sp); body.put("systemInstruction",si);
@@ -57,14 +59,27 @@ public class GeminiClient {
   JSONArray parts=new JSONArray(); parts.put(new JSONObject().put("text",user));
   JSONObject turn=new JSONObject(); turn.put("role","user"); turn.put("parts",parts);
   JSONArray contents=new JSONArray(); contents.put(turn); body.put("contents",contents);
-  JSONObject cfg=new JSONObject(); cfg.put("maxOutputTokens",maxTokensFor(user)); cfg.put("temperature",0.9); body.put("generationConfig",cfg);
+  JSONObject cfg=new JSONObject();
+  // floor of 700 so internal tokens can never eat the whole reply; 2.5 thinking is switched off via thinkingBudget.
+  // 3.x models use thinking_level and already default to MINIMAL, so they need no config at all.
+  cfg.put("maxOutputTokens",Math.max(700,maxTokensFor(user))); cfg.put("temperature",0.9);
+  if(think&&model.contains("2.5")){ JSONObject tc=new JSONObject(); tc.put("thinkingBudget",0); cfg.put("thinkingConfig",tc); }
+  body.put("generationConfig",cfg);
+  if(search){
+   JSONObject tool=new JSONObject();
+   // 3.x uses google_search; older 2.x projects only know google_search_retrieval
+   tool.put(model.contains("3.")?"google_search":"google_search_retrieval",new JSONObject());
+   JSONArray tools=new JSONArray(); tools.put(tool); body.put("tools",tools);
+  }
   String url="https://generativelanguage.googleapis.com/v1beta/models/"+URLEncoder.encode(model,"UTF-8")+":generateContent?key="+URLEncoder.encode(key,"UTF-8");
   HttpURLConnection c=(HttpURLConnection)new URL(url).openConnection();
   c.setRequestMethod("POST"); c.setRequestProperty("Content-Type","application/json"); c.setDoOutput(true);
   c.setConnectTimeout(15000); c.setReadTimeout(45000);
   OutputStream os=c.getOutputStream(); os.write(body.toString().getBytes("UTF-8")); os.close();
   code[0]=c.getResponseCode(); countCall(key);
-  return readAll(code[0]>=200&&code[0]<300?c.getInputStream():c.getErrorStream());
+  String resp=readAll(code[0]>=200&&code[0]<300?c.getInputStream():c.getErrorStream());
+  if(code[0]<200||code[0]>=300) lastError="HTTP "+code[0]+": "+clip(errMessage(resp));
+  return resp;
  }
  static String errMessage(String resp){
   try{ JSONObject e=new JSONObject(resp).optJSONObject("error"); if(e!=null) return e.optString("message","")+" | "+e.optString("status",""); }catch(Exception ex){ L.w("Gemini",ex); }
@@ -74,10 +89,15 @@ public class GeminiClient {
  static String interpret(int code,String resp){
   if(code==401||code==403) return "key died bestie, make a new Gemini key at aistudio.google.com/apikey";
   if(code==429){
-   String low=resp==null?"":resp.toLowerCase();
-   if(low.contains("resource_exhausted")||low.contains("quota")||low.contains("per day")||low.contains("daily"))
-    return "too many messages today: this Gemini key's free quota is used up, it resets around midnight US Pacific time";
-   return "too many messages too fast, give me a minute";
+   String low=resp==null?"":resp.toLowerCase(Locale.US);
+   String detail=clip(errMessage(resp));
+   // Google uses RESOURCE_EXHAUSTED for both per-minute bursts and the real daily quota; inspect the body
+   boolean minute=low.contains("per minute")||low.contains("per_minute")||low.contains("rate_limit_exhausted")||low.contains("rate limit");
+   boolean daily=low.contains("per day")||low.contains("per_day")||low.contains("daily")||low.contains("quota_exhausted")||low.contains("free tier");
+   if(minute&&!daily) return RATE_MIN_PREFIX+"too many messages in one minute, Google's rate limit ("+detail+")";
+   if(daily) return "too many messages today: this Gemini project's free quota is used up, it resets around midnight US Pacific time ("+detail+")";
+   // ambiguous exhaustion: treat conservatively as a minute-level retry first, not a full-day bench
+   return RATE_MIN_PREFIX+"Google rate-limited that request ("+detail+")";
   }
   if(code>=200&&code<300){
    try{
@@ -85,56 +105,126 @@ public class GeminiClient {
     JSONArray cand=j.optJSONArray("candidates");
     if(cand==null||cand.length()==0){
      JSONObject fb=j.optJSONObject("promptFeedback");
-     if(fb!=null) return "my brain lagged: Google blocked that one ("+fb.optString("blockReason","safety filter")+")";
-     return null;
+     String why=fb!=null?fb.optString("blockReason","safety filter"):"no candidates";
+     lastError="empty response ("+why+")";
+     return "my brain lagged: Google returned nothing ("+why+")";
     }
-    JSONArray ps=cand.getJSONObject(0).getJSONObject("content").optJSONArray("parts");
+    JSONObject first=cand.getJSONObject(0); String finish=first.optString("finishReason","");
+    JSONArray ps=first.optJSONObject("content")==null?null:first.getJSONObject("content").optJSONArray("parts");
     StringBuilder out=new StringBuilder();
     if(ps!=null){ for(int i=0;i<ps.length();i++){ String tx=ps.getJSONObject(i).optString("text",""); if(tx!=null) out.append(tx); } }
     String s=out.toString().replaceAll("(?s)<think>.*?</think>","").trim();
-    return s.isEmpty()?null:s;
-   }catch(Exception e){ return null; }
+    if(s.isEmpty()){ lastError="empty text parts, finishReason="+finish; return "my brain lagged: Google sent an empty reply (finishReason "+finish+"), say it again"; }
+    return s;
+   }catch(Exception e){ lastError="parse error: "+clip(e.getMessage()); return null; }
   }
-  if(code==404) return null; // model name likely retired - caller walks the fallback list
+  if(code==404){ lastError="HTTP 404 model not found: "+clip(errMessage(resp)); return null; } // caller walks the fallback list
   if(code==400){
    String low=resp==null?"":resp.toLowerCase();
+   lastError="HTTP 400: "+clip(errMessage(resp));
    if(low.contains("model")||low.contains("not found")||low.contains("not supported")) return null;
    return "my brain lagged (400) "+clip(errMessage(resp));
   }
-  if(code==408||code>=500) return null;
+  if(code==408||code>=500){ lastError="HTTP "+code+" server error"; return null; }
+  lastError="HTTP "+code;
   return "my brain lagged ("+code+") try again";
  }
  static String clip(String s){ if(s==null) return ""; return s.length()>80?s.substring(0,80):s; }
+ static final String PREF_LAST_GOOD="glast_ok";
  // one key, walking model fallbacks; one retry on flaky answers
  static String attempt(String key,String system,String user){
   try{
    ArrayList<String> models=new ArrayList<String>();
-   String pinned=model(); models.add(pinned);
+   String cached=prefs==null?"":prefs.getString(PREF_LAST_GOOD,"");
+   if(!cached.isEmpty()) models.add(cached); // a model that already worked on this project wins
+   String pinned=model(); if(!models.contains(pinned)) models.add(pinned);
    for(String f:FALLBACK){ if(!models.contains(f)) models.add(f); }
-   String out=null; int lastCode=0; String lastResp="";
-   for(int mi=0;mi<models.size()&&mi<3;mi++){
+   String out=null;
+   for(int mi=0;mi<models.size()&&mi<4;mi++){
+    String mdl=models.get(mi);
     int[] code={0};
-    String resp=once(key,models.get(mi),system,user,code);
-    lastCode=code[0]; lastResp=resp;
+    String resp=once(key,mdl,system,user,code,true);
     out=interpret(code[0],resp);
     if(out==null&&code[0]==404) continue; // try next model name
     if(out==null&&code[0]==400&&(resp.toLowerCase().contains("model")||resp.contains("not found"))) continue;
+    if(code[0]==400&&resp.toLowerCase().contains("thinking")){
+     // some projects reject thinkingConfig: retry this model once without it
+     resp=once(key,mdl,system,user,code,false); out=interpret(code[0],resp);
+    }
+    if(out!=null&&!out.startsWith("my brain lagged")&&!out.startsWith(RATE_MIN_PREFIX)&&code[0]>=200&&code[0]<300){
+     if(prefs!=null&&!mdl.equals(prefs.getString(PREF_LAST_GOOD,""))) prefs.edit().putString(PREF_LAST_GOOD,mdl).apply();
+    }
     break;
+   }
+   // per-minute rate limit: wait out Google's short window and retry once instead of benching the key all day
+   if(out!=null&&out.startsWith(RATE_MIN_PREFIX)){
+    Thread.sleep(12000);
+    int[] code={0};
+    String resp=once(key,prefs==null?model():prefs.getString(PREF_LAST_GOOD,model()),system,user,code,true);
+    String retry=interpret(code[0],resp);
+    if(retry!=null&&!retry.startsWith(RATE_MIN_PREFIX)) out=retry;
+    else if(retry==null) out="my bad, brain buffered - say that again? ("+lastError+")";
+    else out=retry.substring(RATE_MIN_PREFIX.length());
    }
    if(out==null){
     // one plain retry on transient failures
     int[] code={0};
-    String resp=once(key,model(),system,user,code);
+    String resp=once(key,prefs==null?model():prefs.getString(PREF_LAST_GOOD,model()),system,user,code,true);
     out=interpret(code[0],resp);
-    if(out==null) out="my bad, brain buffered - say that again?";
+    if(out==null) out="my bad, brain buffered - say that again? ("+lastError+")";
    }
+   if(out.startsWith(RATE_MIN_PREFIX)) out=out.substring(RATE_MIN_PREFIX.length());
    return out;
   }catch(Exception e){
    String m=e.getMessage(); if(m==null) m="offline"; if(m.length()>60) m=m.substring(0,60);
    return "net hiccup: "+m;
   }
  }
+ // minimal end-to-end test used by 'gemini diagnose'
+ interface DiagCb{ void done(String report); }
+ static void diagnose(final DiagCb cb){
+  new Thread(new Runnable(){ public void run(){
+   String report;
+   try{
+    ArrayList<String> ks=Keys.all(prefs,Keys.G);
+    if(ks.isEmpty()){ report="no Gemini keys saved"; postDiag(cb,report); return; }
+    String key=Keys.current(prefs,Keys.G,ks);
+    int[] code={0};
+    String resp=once(key,model(),"You are a helpful assistant.","Reply with exactly: ok",code,true);
+    StringBuilder sb=new StringBuilder();
+    sb.append("model: ").append(model()).append("\nHTTP: ").append(code[0]);
+    sb.append("\nkeys: ").append(ks.size()).append(" | requests today: ").append(used());
+    sb.append("\nraw response (first 400 chars):\n").append(resp==null?"(empty)":resp.substring(0,Math.min(400,resp.length())));
+    String parsed=interpret(code[0],resp);
+    sb.append("\nparsed: ").append(parsed==null?"null/retryable":parsed);
+    sb.append("\nlast error: ").append(lastError.isEmpty()?"none":lastError);
+    report=sb.toString();
+   }catch(Exception e){ report="diagnose failed: "+e.getMessage(); }
+   postDiag(cb,report);
+  }}).start();
+ }
+ private static void postDiag(final DiagCb cb,final String r){ new Handler(Looper.getMainLooper()).post(new Runnable(){ public void run(){ cb.done(r); }}); }
  public static void ask(String system,String user,Ai.Callback cb){ run(system,user,cb,false); }
+ // live web answer with Google Search grounding; falls back to a plain model call if the tool is rejected
+ public static void search(final String system,final String query,final Ai.Callback cb){
+  new Thread(new Runnable(){ public void run(){
+   String out;
+   try{
+    ArrayList<String> ks=Keys.all(prefs,Keys.G);
+    if(ks.isEmpty()){ post(cb,"live search needs a Gemini key - add one free at aistudio.google.com/apikey"); return; }
+    String key=Keys.current(prefs,Keys.G,ks);
+    int[] code={0};
+    String resp=once(key,model(),system,query,code,true,true);
+    if(code[0]<200||code[0]>=300){
+     // older projects/models reject the tool: retry the same question plainly
+     resp=once(key,model(),system,query,code,true,false);
+    }
+    out=interpret(code[0],resp);
+    if(out==null) out="my bad, brain buffered - say that again? ("+lastError+")";
+   }catch(Exception e){ out="net hiccup: "+clip(e.getMessage()); }
+   final String fr=out; post(cb,fr);
+  }}).start();
+ }
  public static void askAuto(String system,String user,Ai.Callback cb){
   try{ if(prefs!=null) prefs.edit().putInt("gaiauto_"+day(),usedAuto()+1).apply(); }catch(Exception e){ L.w("Gemini",e); }
   run(system,user,cb,false);
@@ -149,11 +239,15 @@ public class GeminiClient {
    while(true){
     String k=Keys.current(prefs,Keys.G,ks);
     out=attempt(k,system,user);
-    boolean bad=out.startsWith("key died")||out.startsWith("too many messages today");
-    if(bad&&ks.size()>1){
+    boolean dead=out.startsWith("key died")||out.startsWith("too many messages today");
+    boolean soft=out.startsWith("my bad")||out.startsWith("my brain lagged")||out.startsWith("net hiccup");
+    if(dead&&ks.size()>1){
      Keys.markDead(prefs,Keys.G,k,out.startsWith("key died"));
      tries++;
      if(tries<ks.size()&&Keys.anyAlive(prefs,Keys.G,ks)) continue;
+    } else if(soft&&ks.size()>1&&tries==0){
+     // empty/server failures aren't this key's quota: move it to the back and give the next key one chance
+     String first=ks.remove(0); ks.add(first); tries++; continue;
     }
     break;
    }
@@ -177,7 +271,9 @@ public class GeminiClient {
   JSONObject turn=new JSONObject(); turn.put("role","user"); turn.put("parts",parts);
   JSONArray contents=new JSONArray(); contents.put(turn);
   JSONObject body=new JSONObject(); body.put("contents",contents);
-  JSONObject cfg=new JSONObject(); cfg.put("maxOutputTokens",900); cfg.put("temperature",0.8); body.put("generationConfig",cfg);
+  JSONObject cfg=new JSONObject(); cfg.put("maxOutputTokens",900); cfg.put("temperature",0.8);
+  if(model().contains("2.5")){ JSONObject tc=new JSONObject(); tc.put("thinkingBudget",0); cfg.put("thinkingConfig",tc); } // 3.x defaults to minimal thinking
+  body.put("generationConfig",cfg);
   String url="https://generativelanguage.googleapis.com/v1beta/models/"+URLEncoder.encode(model(),"UTF-8")+":generateContent?key="+URLEncoder.encode(key,"UTF-8");
   HttpURLConnection c=(HttpURLConnection)new URL(url).openConnection();
   c.setRequestMethod("POST"); c.setRequestProperty("Content-Type","application/json"); c.setDoOutput(true);

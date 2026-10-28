@@ -2,8 +2,13 @@ package com.slime;
 import android.graphics.PixelFormat; import android.graphics.Rect; import android.util.DisplayMetrics;
 import android.view.Gravity; import android.view.View; import android.view.ViewTreeObserver; import android.view.WindowManager;
 public class Walls {
- // the visible creature (body, hands, feet) inside the 195x143 window
- static final int BL=MainService.SW/2-51, BR=MainService.SW/2+51, BT=50, BB=141;
+ // user pet-size multiplier (1.0 = normal); Appearance keeps it in sync
+ static float petScale=1f;
+ // the visible creature (body, hands, feet) inside the 195x143 base window, scaled with pet size
+ static float bl(){ return (MainService.SW/2f-51f)*petScale; }
+ static float br(){ return (MainService.SW/2f+51f)*petScale; }
+ static float bt(){ return 50f*petScale; }
+ static float bb(){ return 141f*petScale; }
  static int offX=0, offY=0;
  static Rect cache; static boolean first=true;
  // The usable screen, measured with a tiny invisible full-screen probe window, so it is in the same
@@ -15,10 +20,10 @@ public class Walls {
  }
  static int W(MainService s){ return area(s).right; }
  static int H(MainService s){ return area(s).bottom; }
- static int minX(MainService s){ return area(s).left-BL-offX; }
- static int maxX(MainService s){ return area(s).right-BR-offX; }
- static int minY(MainService s){ return area(s).top-BT-offY; }
- static int maxY(MainService s){ return area(s).bottom-BB-offY; }
+ static int minX(MainService s){ return Math.round(area(s).left-bl()-offX); }
+ static int maxX(MainService s){ return Math.round(area(s).right-br()-offX); }
+ static int minY(MainService s){ return Math.round(area(s).top-bt()-offY); }
+ static int maxY(MainService s){ return Math.round(area(s).bottom-bb()-offY); }
  static void reset(){ }
  static void done(MainService s){
   if(first){ first=false; recenter(s); } else { s.clampPos(); s.updateViews(); }
@@ -51,8 +56,8 @@ public class Walls {
  }
  static void recenter(MainService s){
   Rect a=area(s);
-  s.p1.x=(a.left+a.right)/2-MainService.SW/2-offX;
-  s.p1.y=(a.top+a.bottom)/2-MainService.SH/2-offY;
+  s.p1.x=(a.left+a.right)/2-s.p1.width/2-offX;
+  s.p1.y=(a.top+a.bottom)/2-s.p1.height/2-offY;
   s.clampPos(); s.updateViews();
   s.sp.edit().putInt("x",s.p1.x).putInt("y",s.p1.y).apply();
  }

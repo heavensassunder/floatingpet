@@ -17,6 +17,12 @@ public class LocalLlm {
  static SharedPreferences prefs;
  static final Handler h=new Handler(Looper.getMainLooper());
  static String modelId(){ String m=prefs==null?SMOL:prefs.getString("offlineModel",SMOL); return QWEN.equals(m)?QWEN:SMOL; }
+ // llama.cpp on Android is arm64-only; 32-bit userlands (armeabi-v7a) can't run the server
+ static boolean arch64(){
+  try{ for(String abi:android.os.Build.SUPPORTED_ABIS){ if(abi.contains("64")) return true; } }catch(Exception e){ L.w("LocalLlm",e); }
+  return false;
+ }
+ static final String ARCH_MSG="offline chat needs a 64-bit device - this phone runs 32-bit Android, so llama.cpp can't install here. Cloud Gemini and OpenRouter keep working normally; the offline brain is ready on a 64-bit device (for example the Modio tablet).";
  static String[] model(){ for(String[] m:MODELS){ if(m[0].equals(modelId())) return m; } return MODELS[0]; }
  static String modelLabel(){ for(String[] m:MODELS){ if(m[0].equals(modelId())) return m[1]; } return MODELS[0][1]; }
 
@@ -191,6 +197,11 @@ public class LocalLlm {
  // ---------- commands ----------
  static boolean handle(final MainService s,String t,String low){
   low=low.trim();
+  if(low.equals("offline status")){
+   if(!arch64()){ s.local(ARCH_MSG,false); return true; }
+  } else if(low.startsWith("offline")){
+   if(!arch64()){ s.local(ARCH_MSG,false); return true; }
+  }
   if(low.equals("offline download")||low.startsWith("offline download ")){
    String arg=low.length()>17?low.substring(17).trim():"all";
    final java.util.ArrayList<String> ids=new java.util.ArrayList<String>();

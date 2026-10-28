@@ -40,7 +40,7 @@ public class MainActivity extends Activity {
   btn("Add key(s)","#5DADE2",new Runnable(){ public void run(){ addKeys(); }});
 
   head("Step 2b: Gemini keys - Google AI Studio (optional, fast)");
-  note("Free keys at aistudio.google.com/apikey. Gemini replies are quick and also power 'look'. Add as many as you like: when one runs out of free quota I switch to the next, then say 'use gemini'.");
+  note("Free keys at aistudio.google.com/apikey. Default model is gemini-3.5-flash-lite, which keeps Google's large free daily allowance (about 500 requests a day; the full flash models are cut to roughly 20 a day). Google retires old model names on new projects, and the app switches to a working one by itself. Limits are per Google project, so keys from different accounts add room. Add as many as you like, then say 'use gemini'.");
   btn("Open aistudio.google.com/apikey","#48C9B0",new Runnable(){ public void run(){ open(new Intent(Intent.ACTION_VIEW,Uri.parse("https://aistudio.google.com/apikey"))); }});
   gKeyList=new LinearLayout(this); gKeyList.setOrientation(LinearLayout.VERTICAL); gKeyList.setPadding(0,(int)(8*d),0,0); col.addView(gKeyList);
   gKeyIn=new EditText(this); gKeyIn.setHint("paste one or more Gemini keys here"); gKeyIn.setTextColor(Color.WHITE); gKeyIn.setHintTextColor(Color.parseColor("#7F8C8D")); gKeyIn.setTextSize(13f);
@@ -55,11 +55,17 @@ public class MainActivity extends Activity {
   head("Learn more");
   btn("Read the guide","#AF7AC5",new Runnable(){ public void run(){ startActivity(new Intent(MainActivity.this,GuideActivity.class)); }});
   btn("All commands","#5D6D7E",new Runnable(){ public void run(){ startActivity(new Intent(MainActivity.this,CommandsActivity.class)); }});
+  btn("Open the slime browser (floating panel)","#1E8E3E",new Runnable(){ public void run(){ Intent i=new Intent(MainActivity.this,MainService.class); i.putExtra("browser",true); startService(i); }});
 
   head("Phone control helpers (optional)");
   note("For commands that use Shizuku and Termux. Termux must be allowed to run in the background: set its battery to unrestricted and read guide section 14.");
   btn("Termux app settings","#5D6D7E",new Runnable(){ public void run(){ open(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:com.termux"))); }});
   btn("Battery optimisation list","#5D6D7E",new Runnable(){ public void run(){ open(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)); }});
+
+  head("About SlimeDroid");
+  note("Created by heavens assunder. Free and open source, built entirely in Termux - no paid APIs, ever. Say 'about' in chat for the same links.");
+  btn("WhatsApp the creator: +254 769 204848","#25D366",new Runnable(){ public void run(){ open(new Intent(Intent.ACTION_VIEW,Uri.parse("https://wa.me/254769204848"))); }});
+  btn("GitHub: heavensassunder/floatingpet","#5D6D7E",new Runnable(){ public void run(){ open(new Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/heavensassunder/floatingpet"))); }});
 
   setContentView(sv);
  }

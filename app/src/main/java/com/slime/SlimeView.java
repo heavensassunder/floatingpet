@@ -2,7 +2,8 @@ package com.slime;
 import android.animation.ValueAnimator; import android.content.Context; import android.graphics.*; import android.os.Handler; import android.os.SystemClock; import android.view.View; import android.view.ViewGroup; import android.view.WindowManager;
 import java.util.ArrayList;
 public class SlimeView extends View {
- static final float S=0.75f;
+ public static final float BASE=0.75f; // canvas scale at pet size 100%
+ public float drawScale=BASE; // BASE times the user's pet-size multiplier
  public int mood=0; String bubble=""; float breathe=0f;
  Paint body=new Paint(Paint.ANTI_ALIAS_FLAG), dark=new Paint(Paint.ANTI_ALIAS_FLAG), shine=new Paint(Paint.ANTI_ALIAS_FLAG), white=new Paint(Paint.ANTI_ALIAS_FLAG), black=new Paint(Paint.ANTI_ALIAS_FLAG), blush=new Paint(Paint.ANTI_ALIAS_FLAG), line=new Paint(Paint.ANTI_ALIAS_FLAG), fill=new Paint(Paint.ANTI_ALIAS_FLAG), tear=new Paint(Paint.ANTI_ALIAS_FLAG), shadow=new Paint(Paint.ANTI_ALIAS_FLAG), bub=new Paint(Paint.ANTI_ALIAS_FLAG), edge=new Paint(Paint.ANTI_ALIAS_FLAG), tp=new Paint(Paint.ANTI_ALIAS_FLAG), heartP=new Paint(Paint.ANTI_ALIAS_FLAG), zzz=new Paint(Paint.ANTI_ALIAS_FLAG), limb=new Paint(Paint.ANTI_ALIAS_FLAG), limbFill=new Paint(Paint.ANTI_ALIAS_FLAG);
  RectF r=new RectF(); Path path=new Path(); Handler h=new Handler(); Runnable clearBubble; ValueAnimator idle;
@@ -117,8 +118,8 @@ public class SlimeView extends View {
   trackMove();
   boolean run=isRunning();
   float phase=SystemClock.uptimeMillis()/1000f*14f;
-  int w=(int)(getWidth()/S), hh=(int)(getHeight()/S);
-  cv.save(); cv.scale(S,S);
+  int w=(int)(getWidth()/drawScale), hh=(int)(getHeight()/drawScale);
+  cv.save(); cv.scale(drawScale,drawScale);
   float ground=hh-6f;
   float bob=run?Math.abs((float)Math.sin(phase))*5f:0f;
   float cx=w/2f, cy=hh-72f-bob;
@@ -154,6 +155,8 @@ public class SlimeView extends View {
   cv.restore();
  }
  public void setMood(int m){ mood=m; invalidate(); }
+ // k is the user size multiplier (1.0 = normal); the overlay window is resized together by Appearance
+ public void setPetScale(float k){ drawScale=BASE*k; invalidate(); }
  public void say(String s){
   if(s==null) s=""; s=s.replace("\n"," ").trim(); s=MathText.plain(s);
   bubble=s.length()>90?s.substring(0,(s.lastIndexOf(32,87)>30?s.lastIndexOf(32,87):87))+"...":s; invalidate();

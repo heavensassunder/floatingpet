@@ -14,6 +14,7 @@ class Wander {
 
  void step(){
   long now=System.currentTimeMillis();
+  if(!s.sp.getBoolean("wander",true)) return; // static mode: only drags, pokes and 'play' move it
   if(s.chatView.getVisibility()==View.VISIBLE||now-s.lastTouch<8000) return;
   if(anim!=null&&anim.isRunning()) return;
   if(!s.screenOn()) return;
@@ -46,8 +47,9 @@ class Wander {
  }
  void fleeFrom(float tx,float ty){
   if(anim!=null) anim.cancel();
-  int fx=s.p1.x+((s.p1.x+MainService.SW/2)>tx?220:-220);
-  int fy=s.p1.y+((s.p1.y+MainService.SH/2)>ty?170:-170);
+  float k=Appearance.scale(s.sp);
+  int fx=s.p1.x+((s.p1.x+s.p1.width/2f)>tx?Math.round(220*k):-Math.round(220*k));
+  int fy=s.p1.y+((s.p1.y+s.p1.height/2f)>ty?Math.round(170*k):-Math.round(170*k));
   glideTo(fx,fy,420); s.slimeView.bounceAnim();
   s.sp.edit().putInt("x",s.p1.x).putInt("y",s.p1.y).apply();
  }

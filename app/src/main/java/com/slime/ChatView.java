@@ -2,11 +2,12 @@ package com.slime;
 import android.content.ClipData; import android.content.ClipboardManager; import android.content.Context; import android.graphics.Color; import android.graphics.Typeface;
 import android.graphics.drawable.Drawable; import android.graphics.drawable.GradientDrawable;
 import android.text.SpannableStringBuilder; import android.text.Spanned; import android.text.style.ForegroundColorSpan;
+import android.text.util.Linkify;
 import android.view.*; import android.view.inputmethod.EditorInfo; import android.view.inputmethod.InputMethodManager; import android.widget.*;
 import java.util.regex.Matcher; import java.util.regex.Pattern;
 public class ChatView extends LinearLayout {
  public EditText input; public Button send,close,historyBtn,eyesBtn,voiceBtn,micBtn;
- public Button feedBtn,playBtn,clipBtn,catchBtn,muteBtn,statusBtn,cmdBtn,aiBtn;
+ public Button feedBtn,playBtn,clipBtn,catchBtn,muteBtn,statusBtn,cmdBtn,aiBtn,webBtn;
  public LinearLayout messagesContainer; public ScrollView scroll;
  public boolean kb=false; public Runnable onKeyboard; long kbAt=0;
  public java.util.ArrayList<String> log=new java.util.ArrayList<String>(); String lastBot="";
@@ -30,8 +31,9 @@ public class ChatView extends LinearLayout {
   feedBtn=mk(c,"Feed","#F5B041",9f,9,5); playBtn=mk(c,"Play","#5DADE2",9f,9,5); clipBtn=mk(c,"Clip","#48C9B0",9f,9,5);
   catchBtn=mk(c,"Catch up","#AF7AC5",9f,9,5); muteBtn=mk(c,"Shh","#85929E",9f,9,5); statusBtn=mk(c,"Status","#5D6D7E",9f,9,5); cmdBtn=mk(c,"Cmds","#AF7AC5",9f,9,5);
   aiBtn=mk(c,"AI: OpenRouter","#5DADE2",9f,9,5);
+  webBtn=mk(c,"Web","#1E8E3E",9f,9,5);
   LinearLayout quick=new LinearLayout(c); quick.setOrientation(HORIZONTAL);
-  quick.addView(aiBtn); quick.addView(feedBtn); quick.addView(playBtn); quick.addView(clipBtn); quick.addView(catchBtn); quick.addView(muteBtn); quick.addView(statusBtn); quick.addView(cmdBtn);
+  quick.addView(aiBtn); quick.addView(feedBtn); quick.addView(playBtn); quick.addView(clipBtn); quick.addView(catchBtn); quick.addView(muteBtn); quick.addView(statusBtn); quick.addView(cmdBtn); quick.addView(webBtn);
   HorizontalScrollView quickScroll=new HorizontalScrollView(c); quickScroll.setHorizontalScrollBarEnabled(false); quickScroll.setPadding(0,7,0,0); quickScroll.addView(quick);
   card.addView(titleRow); card.addView(scroll); card.addView(input); card.addView(rowScroll); card.addView(quickScroll);
   addView(card,new LinearLayout.LayoutParams(340,LinearLayout.LayoutParams.WRAP_CONTENT));
@@ -42,6 +44,7 @@ public class ChatView extends LinearLayout {
   muteBtn.setOnClickListener(new View.OnClickListener(){ public void onClick(View v){ runQuick("shh"); }});
   statusBtn.setOnClickListener(new View.OnClickListener(){ public void onClick(View v){ runQuick("status"); }});
   cmdBtn.setOnClickListener(new View.OnClickListener(){ public void onClick(View v){ runQuick("help"); }});
+  webBtn.setOnClickListener(new View.OnClickListener(){ public void onClick(View v){ runQuick("browser"); }});
   // keyboard: the Enter key sends, and tapping the box lifts the chat above the keyboard
   input.setOnEditorActionListener(new TextView.OnEditorActionListener(){ public boolean onEditorAction(TextView v,int a,KeyEvent e){ send.performClick(); return true; }});
   input.setOnClickListener(new View.OnClickListener(){ public void onClick(View v){ setKb(true); }});
@@ -97,7 +100,7 @@ public class ChatView extends LinearLayout {
   return g;
  }
  TextView bubbleTv(String text,boolean isUser){
-  TextView tv=new TextView(getContext()); tv.setText(text); tv.setTextSize(11.5f); tv.setPadding(12,8,12,8); tv.setMaxWidth(250);
+  TextView tv=new TextView(getContext()); tv.setAutoLinkMask(Linkify.ALL); tv.setText(text); tv.setTextSize(11.5f); tv.setPadding(12,8,12,8); tv.setMaxWidth(250);
   tv.setTextColor(isUser?Color.WHITE:Color.parseColor("#1B2631")); tv.setBackground(bg(isUser));
   LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,LinearLayout.LayoutParams.WRAP_CONTENT); lp.setMargins(0,4,0,4);
   tv.setLayoutParams(lp); tv.setOnLongClickListener(copier(text)); return tv;

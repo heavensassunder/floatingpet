@@ -173,7 +173,7 @@ public class Evo {
  static String line(MainService s){
   int xp=s.sp.getInt("xp",0); refresh(s);
   String nx=level>=NAMES.length?"max":(xp+"/"+NEED[level]);
-  return "lvl "+level+" "+NAMES[level-1]+" (xp "+nx+") | "+Ai.provider(s.sp)+" "+Ai.budget()+" today";
+  return "lvl "+level+" "+NAMES[level-1]+" (xp "+nx+") | "+Ai.provider(s.sp)+" "+Ai.budget();
  }
  static boolean handle(MainService s,String low){
   low=low.trim();

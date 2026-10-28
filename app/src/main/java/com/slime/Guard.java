@@ -16,7 +16,7 @@ public class Guard implements Runnable {
   if(moving) return;
   s.slimeView.getLocationOnScreen(loc);
   Rect a=Walls.area(s);
-  int bl=loc[0]+Walls.BL, br=loc[0]+Walls.BR, bt=loc[1]+Walls.BT, bb=loc[1]+Walls.BB;
+  int bl=loc[0]+Math.round(Walls.bl()), br=loc[0]+Math.round(Walls.br()), bt=loc[1]+Math.round(Walls.bt()), bb=loc[1]+Math.round(Walls.bb());
   if(bl>a.left+60&&br<a.right-60&&bt>a.top+60&&bb<a.bottom-60){
    int ox=loc[0]-s.p1.x, oy=loc[1]-s.p1.y;
    if(Math.abs(ox)<60&&Math.abs(oy)<60){ Walls.offX=ox; Walls.offY=oy; }

@@ -11,7 +11,7 @@ public class MainService extends Service {
  // window is 3/4 of the old size (was 260x190)
  static final int SW=195, SH=143;
  static final int CHAT_H=360;
- WindowManager wm; SlimeView slimeView; ChatView chatView; WindowManager.LayoutParams p1,p2;
+ WindowManager wm; SlimeView slimeView; ChatView chatView; BrowserView browserView; WindowManager.LayoutParams p1,p2,p3;
  float dx,dy;
  long lastTap=0,lastTouch=0,lastPoke=0,lastTalk=0,eventMoodUntil=0;
  int pokeCount=0;
@@ -38,6 +38,8 @@ public class MainService extends Service {
   p2.gravity=Gravity.TOP|Gravity.START; p2.softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING; chatView.onKeyboard=new Runnable(){ public void run(){ updateViews(); }}; placeChat(); chatView.setVisibility(View.GONE);
   try{ wm.addView(slimeView,p1); wm.addView(chatView,p2); }catch(Exception e){ Toast.makeText(this,"Allow overlay first",Toast.LENGTH_LONG).show(); stopSelf(); return; }
   instance=this;
+  Appearance.applySize(this);
+  Appearance.applyAlpha(this);
   Walls.measure(this); phone=new Phone(this); phone.start(); extra=new Extra(this); vibe=new Vibe(this); vibe.start(); guard=new Guard(this); h.postDelayed(guard,1200); wander=new Wander(this); notifs=new Notifs(this);
   boolean as=asleep(); needs.tick(as,isCharging()); slimeView.setMood(needs.mood(as));
 
@@ -92,6 +94,7 @@ public class MainService extends Service {
 
   device=new DeviceEvents(this); device.start();
   clipboard=new Clipboard(this); clipboard.attach();
+  Reminders.armAll(this); Briefing.arm(this);
   h.postDelayed(lifeTick,30000); wander.start();
   if(sp.getBoolean("listenOn",false)) h.postDelayed(new Runnable(){ public void run(){ ear.startContinuous(); }},1500);
   if(!as) h.postDelayed(new Runnable(){ public void run(){ slimeView.say("I'm awake!"); slimeView.bounceAnim(); }},1200);
@@ -114,7 +117,7 @@ public class MainService extends Service {
   p2.x=Math.max(0,Math.min(p1.x+(SW-340)/2,sw-340));
   int above=p1.y-CHAT_H;
   if(above>=0) p2.y=above;
-  else p2.y=Math.max(0,Math.min(p1.y+SH-10,sh-CHAT_H-20));
+  else p2.y=Math.max(0,Math.min(p1.y+p1.height-10,sh-CHAT_H-20));
   if(chatView.kb) p2.y=Walls.area(this).top;
  }
 
@@ -128,8 +131,9 @@ public class MainService extends Service {
  // one-tap provider switch from the chat button; cycles OpenRouter -> Gemini -> Offline
  void toggleAiProvider(){
   String cur=Ai.provider(sp), next;
+  boolean has64=LocalLlm.arch64();
   if(Ai.OPENROUTER.equals(cur)) next=Ai.GEMINI;
-  else if(Ai.GEMINI.equals(cur)) next=Ai.OFFLINE;
+  else if(Ai.GEMINI.equals(cur)) next=has64?Ai.OFFLINE:Ai.OPENROUTER;
   else next=Ai.OPENROUTER;
   if(Ai.GEMINI.equals(next)&&Keys.all(sp,Keys.G).isEmpty()){ local("you haven't added a Gemini key yet - add one on the home screen, or tap again to go offline",false); return; }
   if(Ai.OPENROUTER.equals(next)&&Keys.all(sp,Keys.OR).isEmpty()){ local("you haven't added an OpenRouter key yet - add one on the home screen",false); return; }
@@ -141,6 +145,30 @@ public class MainService extends Service {
   else local("switched to OpenRouter ("+FreeModels.last(sp)+") - tap AI to cycle providers",true);
  }
  void showChat(){ Phone.focusable(this); chatView.setVisibility(View.VISIBLE); updateViews(); }
+
+ // ---------- floating browser panel (an overlay, like the chat box, not a full-screen activity) ----------
+ void openBrowser(String url){
+  if(browserView==null){
+   browserView=new BrowserView(this);
+   int bw=Math.min(scrW()-20,380), bh=Math.min((int)(scrH()*0.6f),520);
+   p3=new WindowManager.LayoutParams(bw,bh,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL|WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,PixelFormat.TRANSLUCENT);
+   p3.gravity=Gravity.TOP|Gravity.START; p3.x=Math.max(0,(scrW()-bw)/2); p3.y=40; p3.softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN;
+   browserView.lp=p3;
+   try{ wm.addView(browserView,p3); }catch(Exception e){ L.w("MainService",e); local("couldn't open the browser overlay - check the overlay permission",false); return; }
+  }
+  p3.flags&=~WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
+  try{ wm.updateViewLayout(browserView,p3); }catch(Exception e){ L.w("MainService",e); }
+  browserView.setVisibility(View.VISIBLE);
+  browserView.open(url);
+  chatView.setVisibility(View.GONE);
+ }
+ void closeBrowser(){
+  if(browserView==null) return;
+  browserView.setVisibility(View.GONE);
+  p3.flags|=WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
+  try{ wm.updateViewLayout(browserView,p3); }catch(Exception e){ L.w("MainService",e); }
+ }
  void addChat(String t,boolean user){
   chatView.addMessage(t,user);
   try{ while(chatView.messagesContainer.getChildCount()>60) chatView.messagesContainer.removeViewAt(0); }catch(Exception e){ L.w("MainService",e); }
@@ -231,6 +259,12 @@ public class MainService extends Service {
  boolean localCommand(String low){
   long now=System.currentTimeMillis();
   if(low.equals("help")||low.equals("commands")){ Vibe.showHelp(this); return true; }
+  if(low.equals("browser")||low.equals("open browser")||low.equals("web browser")||low.equals("web")){ openBrowser(""); return true; }
+  if(low.startsWith("browse ")||low.startsWith("browser ")||low.startsWith("web ")){
+   openBrowser(low.substring(low.indexOf(' ')+1).trim()); return true;
+  }
+  if(low.equals("close browser")){ closeBrowser(); return true; }
+  if(low.equals("about")){ local("SlimeDroid - a free, open-source phone pet by heavens assunder.\nWhatsApp: https://wa.me/254769204848\nGitHub: https://github.com/heavensassunder/floatingpet",false); return true; }
   if(low.equals("status")||low.equals("stats")){ local(Evo.line(this)+" | food "+(int)needs.food+" | energy "+(int)needs.energy+" | joy "+(int)needs.joy+" | battery "+batteryLevel()+"% | "+Ai.provider(sp)+" "+Ai.budget()+" | "+Ai.currentModelName(),false); return true; }
   if(low.equals("feed")||low.equals("feed slime")||low.equals("snack")){
    if(needs.food>90f){ local("I'm stuffed, no more!"); } else { needs.feed(25f); moodEvent(3,6000); local("nom nom nom... thanks!"); }
@@ -263,6 +297,10 @@ public class MainService extends Service {
   String low=t.toLowerCase(); lastTouch=System.currentTimeMillis();
   needs.cheer(5f); Evo.touchDay(this);
   if(localCommand(low)) return;
+  if(Reminders.handle(this,t,low)) return;
+  if(Briefing.handle(this,t,low)) return;
+  if(Routines.handle(this,t,low)) return;
+  if(Appearance.handle(this,t,low)) return;
   if(phone!=null&&phone.handle(t,low)) return;
   if(extra!=null&&extra.handle(t,low)) return;
   if(Ai.handle(this,t,low)) return;
@@ -338,8 +376,17 @@ public class MainService extends Service {
   try{ if(voice!=null) voice.destroy(); }catch(Exception e){ L.w("MainService",e); }
   try{ wm.removeView(slimeView); }catch(Exception e){ L.w("MainService",e); }
   try{ wm.removeView(chatView); }catch(Exception e){ L.w("MainService",e); }
+  try{ if(browserView!=null){ wm.removeView(browserView); browserView.destroy(); browserView=null; } }catch(Exception e){ L.w("MainService",e); }
  }
  @Override public IBinder onBind(Intent i){ return null; }
  @Override public void onConfigurationChanged(android.content.res.Configuration cfg){ super.onConfigurationChanged(cfg); Walls.measure(this); h.postDelayed(new Runnable(){ public void run(){ clampPos(); updateViews(); }},400); }
- @Override public int onStartCommand(Intent in,int fl,int id){ try{ if(instance==this&&slimeView!=null) Walls.recenter(this); }catch(Exception e){ L.w("MainService",e); } return START_STICKY; }
+ @Override public int onStartCommand(Intent in,int fl,int id){
+  try{ if(instance==this&&slimeView!=null) Walls.recenter(this); }catch(Exception e){ L.w("MainService",e); }
+  try{ if(in!=null&&in.getBooleanExtra("browser",false)) h.postDelayed(new Runnable(){ public void run(){ openBrowser(""); }},900); }catch(Exception e){ L.w("MainService",e); }
+  try{ if(in!=null&&in.getAction()!=null){
+   if(Reminders.ACTION.equals(in.getAction())) Reminders.fire(this,in.getIntExtra("id",-1));
+   else if(Briefing.ACTION.equals(in.getAction())) Briefing.fire(this);
+  }}catch(Exception e){ L.w("MainService",e); }
+  return START_STICKY;
+ }
 }
