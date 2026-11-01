@@ -63,10 +63,12 @@ class BrowserView extends LinearLayout {
   st.setJavaScriptEnabled(true); st.setDomStorageEnabled(true); st.setDatabaseEnabled(true);
   st.setUseWideViewPort(true);
   st.setLoadWithOverviewMode(true);
+  try{ st.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.NARROW_COLUMNS); }catch(Exception e){ L.w("BrowserView",e); }
   st.setSupportZoom(true); st.setBuiltInZoomControls(true); st.setDisplayZoomControls(false);
+  st.setUserAgentString("Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36");
   web.setWebViewClient(new WebViewClient(){
    @Override public boolean shouldOverrideUrlLoading(WebView v,WebResourceRequest req){ return false; }
-   @Override public void onPageStarted(WebView v,String url,android.graphics.Bitmap fav){ addr.setText(url); updateNav(); fitViewport(v); }
+   @Override public void onPageStarted(WebView v,String url,android.graphics.Bitmap fav){ addr.setText(url); updateNav(); }
    @Override public void onPageFinished(WebView v,String url){ addr.setText(url); updateNav(); saveLastUrl(url); refreshStar(); fitToPanel(v); }
   });
   web.setWebChromeClient(new WebChromeClient(){
@@ -143,14 +145,10 @@ class BrowserView extends LinearLayout {
   web.loadUrl(resolve(u));
  }
  boolean goBack(){ if(web.canGoBack()){ web.goBack(); return true; } return false; }
- void fitViewport(WebView v){
-  // Inject a viewport meta tag so pages render at panel width instead of desktop width.
-  // width=device-width makes the page render at the WebView's width (~380px).
-  v.loadUrl("javascript:(function(){var m=document.querySelector('meta[name=\"viewport\"]');if(!m){m=document.createElement('meta');m.name='viewport';var h=document.getElementsByTagName('head')[0];if(h)h.appendChild(m);}m.content='width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes';})();");
- }
  void fitToPanel(WebView v){
-  // Force page content to fit the narrow floating panel width instead of being cut off.
-  v.loadUrl("javascript:(function(){var css='html,body{max-width:100vw!important;overflow-x:hidden!important;width:100%!important;-webkit-text-size-adjust:100%!important;}img,iframe,video,canvas,object,embed,table,td,th{max-width:100%!important;height:auto!important;}table{table-layout:fixed!important;}';var s=document.createElement('style');s.type='text/css';if(s.styleSheet){s.styleSheet.cssText=css;}else{s.appendChild(document.createTextNode(css));}(document.head||document.documentElement).appendChild(s);})();");
+  // Inject viewport meta tag + CSS so pages render at panel width instead of desktop width.
+  // Runs in onPageFinished when the page context actually exists (onPageStarted is too early).
+  v.loadUrl("javascript:(function(){var m=document.querySelector('meta[name=\"viewport\"]');if(!m){m=document.createElement('meta');m.name='viewport';var h=document.getElementsByTagName('head')[0];if(h)h.appendChild(m);}m.content='width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes';var css='html,body{max-width:100vw!important;overflow-x:hidden!important;width:100%!important;overflow-wrap:break-word!important;-webkit-text-size-adjust:100%!important;}img,iframe,video,canvas,object,embed,table,td,th{max-width:100%!important;height:auto!important;}table{table-layout:fixed!important;}';var s=document.createElement('style');s.type='text/css';if(s.styleSheet){s.styleSheet.cssText=css;}else{s.appendChild(document.createTextNode(css));}(document.head||document.documentElement).appendChild(s);})();");
  }
  void destroy(){ try{ ((ViewGroup)web.getParent()).removeView(web); web.destroy(); }catch(Exception e){ L.w("BrowserView",e); } }
  void saveLastUrl(String u){ if(u==null)return; s.sp.edit().putString(PREF_LAST_URL,u).apply(); }
