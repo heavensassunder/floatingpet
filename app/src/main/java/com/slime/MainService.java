@@ -334,7 +334,7 @@ public class MainService extends Service {
   slimeView.say("peeking..."); chatView.setVisibility(View.GONE);
   h.postDelayed(new Runnable(){ public void run(){
    String screen=EyeService.instance!=null?EyeService.instance.dumpScreen():"no screen (accessibility is off)";
-   String sys=OpenRouterClient.buildSystem(brain.context(t),moods[slimeView.mood],screen,mem.getNotifContext(),mem.getRecentContext(6))+"\nYOUR NEEDS: "+needs.describe()+Phone.AI_HINT+Vibe.STYLE+Brain.PROMPT+Modes.prompt(MainService.this);
+   String sys=OpenRouterClient.buildSystem(brain.context(t),moods[slimeView.mood],screen,mem.getNotifContext(),mem.getRecentContext(6))+"\nYOUR NEEDS: "+needs.describe()+Phone.AI_HINT+"\nBE PROACTIVE: You are a phone agent, not just a chat buddy. If the user wants something done (open an app, go back, check screen, etc.), use the tags above to make it happen - don't just talk about it. When in doubt, act."+Vibe.STYLE+Brain.PROMPT+Modes.prompt(MainService.this);
    Ai.ask(sys,t,new Ai.Callback(){ public void onResult(String reply){ onReply(t,reply); }});
   }},420);
  }
