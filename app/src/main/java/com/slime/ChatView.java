@@ -1,16 +1,74 @@
 package com.slime;
 import android.content.ClipData; import android.content.ClipboardManager; import android.content.Context; import android.graphics.Color; import android.graphics.Typeface;
 import android.graphics.drawable.Drawable; import android.graphics.drawable.GradientDrawable;
-import android.text.SpannableStringBuilder; import android.text.Spanned; import android.text.style.ForegroundColorSpan;
+import android.text.SpannableStringBuilder; import android.text.Spanned; import android.text.TextWatcher; import android.text.style.ForegroundColorSpan;
 import android.text.util.Linkify;
 import android.view.*; import android.view.inputmethod.EditorInfo; import android.view.inputmethod.InputMethodManager; import android.widget.*;
-import java.util.regex.Matcher; import java.util.regex.Pattern;
+import java.util.ArrayList; import java.util.regex.Matcher; import java.util.regex.Pattern;
 public class ChatView extends LinearLayout {
  public EditText input; public Button send,close,historyBtn,eyesBtn,voiceBtn,micBtn;
  public Button feedBtn,playBtn,clipBtn,catchBtn,muteBtn,statusBtn,cmdBtn,aiBtn,webBtn;
  public LinearLayout messagesContainer; public ScrollView scroll;
- public boolean kb=false; public Runnable onKeyboard; long kbAt=0;
- public java.util.ArrayList<String> log=new java.util.ArrayList<String>(); String lastBot="";
+public boolean kb=false; public Runnable onKeyboard; long kbAt=0;
+public java.util.ArrayList<String> log=new java.util.ArrayList<String>(); String lastBot="";
+// autocomplete suggestions for chat commands
+ListPopupWindow popup; ArrayAdapter<String> sugg;
+static final String[] CMDS={
+ "about","achievements","ai provider","autoheal off","autoheal on","back","bluetooth off","bluetooth on",
+ "brightness auto","brightness 0","brightness 100","browser","catch me up","chill mode","clear history",
+ "close browser","copy","copy all","data off","data on","dark mode off","dark mode on","diagnose","drop",
+ "evolution","feed","fg","fix termux","focus mode","forget all","game mode","guide","hacker mode","help",
+ "hold ","home","hum","hum off","hum on","key ","launch ","listen off","listen on","listen test",
+ "listen language en","listen language sw","listen engine auto","listen engine ondevice","look ","memories",
+ "memory change ","memory export","memory import","memory off","memory on","memory search ","memory stats",
+ "migrate ","mute","models","mode ","mode chill","mode focus","mode game","mode hacker","mode study",
+ "modes","notifs","notifications","offline download all","offline download qwen","offline download smol",
+ "offline model qwen","offline model smol","offline start","offline status","offline stop","open ","open settings",
+ "pings off","pings on","play","peek","peek less","peek more","peek off","peek on","play with me","poke",
+ "recents","remember ","remember about ","remind me ","reset ","rotate off","rotate on","screen off","screen on",
+ "search ","settings","shh","shizuku","sing","snack","status","stay","stay still","study mode","swipe down",
+ "swipe left","swipe right","swipe up","talk less","talk more","talk to me","tap ","term ","tts cloud test",
+ "tts cloud voices","tts engines","tts language en","tts language sw","tts local","tts mode auto","tts mode cloud",
+ "tts mode local","tts off","tts on","tts pitch ","tts provider auto","tts provider google","tts provider streamelements",
+ "tts speed ","tts status","tts test","tts voice ","unmute","use gemini","use offline","use openrouter",
+ "walk around","wander off","wander on","weather","web","what do you remember","wifi off","wifi on",
+ "wake up","volume ","timeout ","dnd off","dnd on","drop to ","stash","what are you holding","voice list",
+ "voice ","tts cloud voice ","gemini key add ","gemini key next ","gemini key remove ","gemini key reset",
+ "gemini diagnose","gemini key reset","gemini models","gemini model reset","gemini model ","key add ","key next ",
+ "key remove ","key reset","offline model ","pet bigger","pet opacity ","pet smaller","pet size ","chat opacity ",
+ "when I open ","when charging ","when I unplug ","when headphones connect ","when headphones disconnect ",
+ "when I unlock ","routines","forget routine N","briefing now","briefing off","briefing ","weather city ","weather ",
+ "clip ","clip reply","clip summarize","clip translate","copy all","copy ","models","diagnose","grant self","shizuku",
+ "autoheal on","autoheal off","vision model ","sh ","term ","brightness ","volume ","timeout ","drop to ","force stop ",
+ "goto ","look ","photo math","solve this","launch ","tap ","type ","scroll ","swipe X1 Y1 X2 Y2","key enter","key volup",
+ "key voldown","key mute","key power","key menu","key play","key next","key prev","swipe up","swipe down","swipe left",
+ "swipe right","tts speed ","tts pitch ","tts language ","tts provider ","tts mode ","tts cloud voices","tts cloud test",
+ "tts status","tts test","voice list","voice ","tts cloud voice ","listen language ","listen engine ","listen off",
+ "listen on","listen test","peek more","peek less","peek off","peek on","hum on","hum off","hum now","sing","mode ",
+ "mode focus","mode hacker","mode study","mode game","mode chill","modes","remember ","remember about ","memory change ",
+ "memory export","memory import","memory off","memory on","memory search ","memory stats","memories","forget N",
+ "forget all","forget reminder N","forget routine N","remind me ","briefing ","briefing now","briefing off","weather ",
+ "weather city ","wander off","wander on","wander status","pet size ","pet bigger","pet smaller","pet size reset",
+ "pet opacity ","chat opacity ","reset","use gemini","use openrouter","use offline","offline ","offline status",
+ "offline start","offline stop","offline download smol","offline download qwen","offline download all","offline model smol",
+ "offline model qwen","search ","google ","gemini model ","gemini models","gemini model reset","gemini diagnose",
+ "gemini keys","gemini key add ","gemini key next ","gemini key remove ","gemini key reset","gemini key reset",
+ "key add ","key next ","key remove ","key reset","key ","keys","ai provider","clip ","clip summarize","clip translate",
+ "clip reply","copy ","copy all","guide","fix termux","diagnose","grant self","shizuku","autoheal on","autoheal off",
+ "vision model ","sh ","term ","brightness ","volume ","timeout ","dnd on","dnd off","rotate on","rotate off","dark mode on",
+ "dark mode off","wifi on","wifi off","data on","data off","bluetooth on","bluetooth off","airplane on","airplane off",
+ "screen off","screen on","back","home","recents","tap ","swipe up","swipe down","swipe left","swipe right","launch ",
+ "force stop ","goto ","fg","shot","look ","photo math","solve this","stype ","hold ","drop ","stash","what are you holding",
+ "evolution","achievements","models","hum","hum now","peek","peek now","listen on","listen off","listen test","tts on",
+ "tts off","tts test","tts cloud test","tts status","tts cloud voices","tts engines","tts language ","tts mode ",
+ "tts provider ","tts speed ","tts pitch ","tts cloud voice ","voice list","voice ","clip ","clip summarize",
+ "clip translate","clip reply","copy","copy all","guide","fix termux","diagnose","grant self","shizuku","autoheal on",
+ "autoheal off","vision model ","sh ","term ","brightness ","volume ","timeout ","dnd on","dnd off","rotate on",
+ "rotate off","dark mode on","dark mode off","wifi on","wifi off","data on","data off","bluetooth on","bluetooth off",
+ "airplane on","airplane off","screen off","screen on","back","home","recents","tap ","swipe up","swipe down",
+ "swipe left","swipe right","launch ","force stop ","goto ","fg","shot","look ","photo math","solve this","stype ",
+ "hold ","drop ","stash","what are you holding"
+};
  public ChatView(Context c){ super(c); setOrientation(VERTICAL); setBackgroundColor(Color.parseColor("#80000000"));
   LinearLayout card=new LinearLayout(c); card.setOrientation(VERTICAL); card.setPadding(12,10,12,10); card.setBackground(createRound(Color.WHITE,18f));
   LinearLayout titleRow=new LinearLayout(c); titleRow.setOrientation(HORIZONTAL); titleRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -52,6 +110,44 @@ public class ChatView extends LinearLayout {
    try{ if(kb&&System.currentTimeMillis()-kbAt>900&&in.getSystemWindowInsetBottom()<=150) setKb(false); }catch(Exception e){ L.w("ChatView",e); }
    return v.onApplyWindowInsets(in);
   }});
+  setupAutocomplete();
+ }
+ // ---------- command autocomplete ----------
+ void setupAutocomplete(){
+  sugg=new ArrayAdapter<String>(getContext(),android.R.layout.simple_list_item_1,new ArrayList<String>());
+  popup=new ListPopupWindow(getContext());
+  popup.setAdapter(sugg);
+  popup.setAnchorView(input);
+  popup.setModal(true);
+  popup.setHeight(500);
+ 
+  popup.setOnItemClickListener(new android.widget.AdapterView.OnItemClickListener(){
+   public void onItemClick(android.widget.AdapterView<?> p,View v,int pos,long id){
+    String c=sugg.getItem(pos);
+    input.setText(c);
+    input.setSelection(c.length());
+    popup.dismiss();
+    hideKeyboard();
+    send.performClick();
+   }
+  });
+  input.addTextChangedListener(new TextWatcher(){
+   public void beforeTextChanged(CharSequence s,int start,int count,int after){}
+   public void onTextChanged(CharSequence s,int start,int before,int count){
+    String q=s.toString().trim();
+    if(q.isEmpty()){ popup.dismiss(); return; }
+    ArrayList<String> hits=new ArrayList<String>();
+    String ql=q.toLowerCase();
+    for(String c:CMDS){
+     if(c.toLowerCase().startsWith(ql)) hits.add(c);
+     if(hits.size()>40) break;
+    }
+    if(hits.isEmpty()){ popup.dismiss(); return; }
+    sugg.clear(); sugg.addAll(hits); sugg.notifyDataSetChanged();
+    if(!popup.isShowing()&&getContext()!=null) popup.show();
+   }
+   public void afterTextChanged(android.text.Editable e){}
+  });
  }
  public void setKb(boolean open){
   if(kb==open) return;
@@ -63,6 +159,7 @@ public class ChatView extends LinearLayout {
   try{ InputMethodManager imm=(InputMethodManager)getContext().getSystemService(Context.INPUT_METHOD_SERVICE); imm.hideSoftInputFromWindow(input.getWindowToken(),0); }catch(Exception e){ L.w("ChatView",e); }
   try{ input.clearFocus(); }catch(Exception e){ L.w("ChatView",e); }
   setKb(false);
+  popup.dismiss();
  }
  Button mk(Context c,String label,String color,float ts,int ph,int pv){
   Button b=new Button(c); b.setText(label); b.setAllCaps(false); b.setTextSize(ts);
