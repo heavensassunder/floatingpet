@@ -114,13 +114,27 @@ static final String[] CMDS={
  }
  // ---------- command autocomplete ----------
  void setupAutocomplete(){
-  sugg=new ArrayAdapter<String>(getContext(),android.R.layout.simple_list_item_1,new ArrayList<String>());
+  // dark text on light background, compact rows
+  sugg=new ArrayAdapter<String>(getContext(),android.R.layout.simple_list_item_1,new ArrayList<String>()){
+   public View getView(int pos,View cv,android.view.ViewGroup g){
+    View v=super.getView(pos,cv,g);
+    if(v instanceof TextView){
+     ((TextView)v).setTextColor(Color.parseColor("#1B2631"));
+     ((TextView)v).setTextSize(12f);
+     ((TextView)v).setPadding(6,4,6,4);
+     v.setBackgroundColor(Color.parseColor("#FFFFFF"));
+    }
+    return v;
+   }
+  };
   popup=new ListPopupWindow(getContext());
   popup.setAdapter(sugg);
   popup.setAnchorView(input);
-  popup.setModal(true);
-  popup.setHeight(500);
- 
+  // non-modal so the keyboard stays visible while suggestions are shown
+  popup.setModal(false);
+  popup.setHeight(420);
+  popup.setWidth(320);
+
   popup.setOnItemClickListener(new android.widget.AdapterView.OnItemClickListener(){
    public void onItemClick(android.widget.AdapterView<?> p,View v,int pos,long id){
     String c=sugg.getItem(pos);
@@ -139,7 +153,8 @@ static final String[] CMDS={
     ArrayList<String> hits=new ArrayList<String>();
     String ql=q.toLowerCase();
     for(String c:CMDS){
-     if(c.toLowerCase().startsWith(ql)) hits.add(c);
+     String cl=c.toLowerCase();
+     if(cl.startsWith(ql)||fuzzy(q,cl)) hits.add(c);
      if(hits.size()>40) break;
     }
     if(hits.isEmpty()){ popup.dismiss(); return; }
@@ -148,6 +163,22 @@ static final String[] CMDS={
    }
    public void afterTextChanged(android.text.Editable e){}
   });
+ }
+ // tolerant match: within 2 edits for short commands, or starts-with plus one typo
+ static boolean fuzzy(String q,String c){
+  if(c.startsWith(q)) return true;
+  int n=q.length(),m=c.length();
+  if(Math.abs(n-m)>2) return false;
+  int[][] dp=new int[n+1][m+1];
+  for(int i=0;i<=n;i++) dp[i][0]=i;
+  for(int j=0;j<=m;j++) dp[0][j]=j;
+  for(int i=1;i<=n;i++){
+   for(int j=1;j<=m;j++){
+    int cost=q.charAt(i-1)==c.charAt(j-1)?0:1;
+    dp[i][j]=Math.min(Math.min(dp[i-1][j]+1,dp[i][j-1]+1),dp[i-1][j-1]+cost);
+   }
+  }
+  return dp[n][m]<=2;
  }
  public void setKb(boolean open){
   if(kb==open) return;

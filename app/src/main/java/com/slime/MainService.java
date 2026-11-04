@@ -318,6 +318,9 @@ public class MainService extends Service {
   else if(low.startsWith("type ")){ cmd="type"; arg=t.substring(5).trim(); }
   else if(low.equals("scroll")||low.startsWith("scroll ")){ cmd="scroll"; arg=low.length()>6?low.substring(7).trim():"down"; }
   if(cmd!=null){ runAction(cmd,arg,t); return; }
+  // speech-to-text can mangle words: fuzzy-match against known commands
+  String fuzzyCmd=fuzzyCommand(low);
+  if(fuzzyCmd!=null){ local("\""+t+"\" -> \""+fuzzyCmd+"\"",false); handle(fuzzyCmd); return; }
   askAI(t);
  }
 
@@ -388,5 +391,39 @@ public class MainService extends Service {
    else if(Briefing.ACTION.equals(in.getAction())) Briefing.fire(this);
   }}catch(Exception e){ L.w("MainService",e); }
   return START_STICKY;
+ }
+ // tolerant match so misspoken voice commands still run
+ static String fuzzyCommand(String low){
+  if(low==null||low.isEmpty()) return null;
+  String[] cmds={
+   "help","browser","close browser","about","status","feed","play","shh","talk to me","unmute",
+   "talk more","talk less","say something","wake up","pings on","pings off","catch me up",
+   "clear history","memories","mode","focus mode","hacker mode","study mode","game mode","chill mode",
+   "hum","peek","search ","weather ","pet size ","pet bigger","pet smaller","pet opacity ","chat opacity ",
+   "wander off","wander on","remind me ","briefing ","use gemini","use openrouter","use offline",
+   "open ","tap ","type ","scroll ","back","home","recents","look ","photo math","gemini model ",
+   "gemini diagnose","gemini models","key ","gemini key ","offline ","listen ","tts ","voice ",
+   "clip ","copy ","remember ","forget ","routines ","routine ","when I ","briefing now","weather "
+  };
+  String best=null; int bestDist=999;
+  for(String c:cmds){
+   int d=editDist(low,c);
+   if(d<bestDist){ bestDist=d; best=c; }
+  }
+  return bestDist<=2?best:null;
+ }
+ static int editDist(String a,String b){
+  int n=a.length(),m=b.length();
+  if(Math.abs(n-m)>2) return 999;
+  int[][] dp=new int[n+1][m+1];
+  for(int i=0;i<=n;i++) dp[i][0]=i;
+  for(int j=0;j<=m;j++) dp[0][j]=j;
+  for(int i=1;i<=n;i++){
+   for(int j=1;j<=m;j++){
+    int cost=a.charAt(i-1)==b.charAt(j-1)?0:1;
+    dp[i][j]=Math.min(Math.min(dp[i-1][j]+1,dp[i][j-1]+1),dp[i-1][j-1]+cost);
+   }
+  }
+  return dp[n][m];
  }
 }
