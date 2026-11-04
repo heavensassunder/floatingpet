@@ -120,8 +120,8 @@ static final String[] CMDS={
     View v=super.getView(pos,cv,g);
     if(v instanceof TextView){
      ((TextView)v).setTextColor(Color.parseColor("#1B2631"));
-     ((TextView)v).setTextSize(12f);
-     ((TextView)v).setPadding(6,4,6,4);
+     ((TextView)v).setTextSize(10f);
+     ((TextView)v).setPadding(4,2,4,2);
      v.setBackgroundColor(Color.parseColor("#FFFFFF"));
     }
     return v;
@@ -132,7 +132,7 @@ static final String[] CMDS={
   popup.setAnchorView(input);
   // non-modal so the keyboard stays visible while suggestions are shown
   popup.setModal(false);
-  popup.setHeight(420);
+  popup.setHeight(300);
   popup.setWidth(320);
 
   popup.setOnItemClickListener(new android.widget.AdapterView.OnItemClickListener(){
