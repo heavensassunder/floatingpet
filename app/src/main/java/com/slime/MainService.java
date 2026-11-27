@@ -283,7 +283,7 @@ public class MainService extends Service {
   if(low.contains("what do you remember")||low.contains("what do you know about me")){ brain.showSummary(); return true; }
   if(low.equals("forget all")||low.equals("forget everything")){ if(brain!=null) brain.clearAll(); try{ mem.longFile.delete(); }catch(Exception e){ L.w("MainService",e); } local("done, I forgot everything I knew about you."); return true; }
   if(low.equals("clear history")){ try{ mem.chatFile.delete(); mem.notifFile.delete(); chatView.messagesContainer.removeAllViews(); }catch(Exception e){ L.w("MainService",e); } notifs.unseen=0; local("history cleared"); return true; }
-  if(taskGuard.handle(t,low)) return true;
+  if(taskGuard.handle(low,low)) return true;
   return false;
  }
 

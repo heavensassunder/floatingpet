@@ -39,8 +39,8 @@ public class TaskGuard implements Runnable {
   isRunning(w,new Shell.Result(){
    public void done(int code,String out,String err,String info){
     boolean running=(code==0);
-    if(!running){
-     L.w("TaskGuard","task not running ("+w+"), restarting");
+  if(!running){
+   L.w("TaskGuard",new Exception("task not running ("+w+"), restarting"));
      s.phone.sh.term(t,new Shell.Result(){ public void done(int c2,String o2,String e2,String i2){
       if(c2==0) s.local("guard restarted your task: "+t,false);
       else s.local("guard tried to restart but Termux said: "+Phone.clip(e2+i2),false);
