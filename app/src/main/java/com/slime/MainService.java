@@ -1,7 +1,7 @@
 package com.slime;
-import android.app.Service;
-import android.content.Intent; import android.content.IntentFilter; import android.content.SharedPreferences;
-import android.graphics.PixelFormat;
+import android.app.Notification; import android.app.NotificationChannel; import android.app.NotificationManager;
+import android.app.Service; import android.content.Intent; import android.content.IntentFilter; import android.content.SharedPreferences;
+import android.graphics.Color; import android.graphics.PixelFormat;
 import android.os.BatteryManager; import android.os.Handler; import android.os.IBinder; import android.os.PowerManager;
 import android.view.*; import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.Toast;
@@ -18,7 +18,7 @@ public class MainService extends Service {
  String[] moods={"Happy!","Sleepy","Mad","Love","Hungry","Cry","Wow","Wink","Dead"};
  MemoryManager mem; ActionExecutor executor; Voice voice; Notifs notifs;
  Handler h=new Handler(); Random rnd=new Random(); SharedPreferences sp; Needs needs;
- Wander wander; Clipboard clipboard; DeviceEvents device; Ear ear;
+ Wander wander; Clipboard clipboard; DeviceEvents device; Ear ear; TaskGuard taskGuard;
 
  Runnable lifeTick=new Runnable(){ public void run(){ try{ life(); }catch(Exception e){ L.w("MainService",e); } h.postDelayed(this,30000); }};
  @Override public void onCreate(){
@@ -38,9 +38,10 @@ public class MainService extends Service {
   p2.gravity=Gravity.TOP|Gravity.START; p2.softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING; chatView.onKeyboard=new Runnable(){ public void run(){ updateViews(); }}; placeChat(); chatView.setVisibility(View.GONE);
   try{ wm.addView(slimeView,p1); wm.addView(chatView,p2); }catch(Exception e){ Toast.makeText(this,"Allow overlay first",Toast.LENGTH_LONG).show(); stopSelf(); return; }
   instance=this;
+  createGuardChannel();
   Appearance.applySize(this);
   Appearance.applyAlpha(this);
-  Walls.measure(this); phone=new Phone(this); phone.start(); extra=new Extra(this); vibe=new Vibe(this); vibe.start(); guard=new Guard(this); h.postDelayed(guard,1200); wander=new Wander(this); notifs=new Notifs(this);
+  Walls.measure(this); phone=new Phone(this); phone.start(); extra=new Extra(this); vibe=new Vibe(this); vibe.start(); guard=new Guard(this); h.postDelayed(guard,1200); wander=new Wander(this); notifs=new Notifs(this); taskGuard=new TaskGuard(this);
   boolean as=asleep(); needs.tick(as,isCharging()); slimeView.setMood(needs.mood(as));
 
   chatView.close.setOnClickListener(new View.OnClickListener(){ public void onClick(View v){ chatView.setVisibility(View.GONE); }});
@@ -283,6 +284,7 @@ public class MainService extends Service {
   if(low.contains("what do you remember")||low.contains("what do you know about me")){ brain.showSummary(); return true; }
   if(low.equals("forget all")||low.equals("forget everything")){ if(brain!=null) brain.clearAll(); try{ mem.longFile.delete(); }catch(Exception e){ L.w("MainService",e); } local("done, I forgot everything I knew about you."); return true; }
   if(low.equals("clear history")){ try{ mem.chatFile.delete(); mem.notifFile.delete(); chatView.messagesContainer.removeAllViews(); }catch(Exception e){ L.w("MainService",e); } notifs.unseen=0; local("history cleared"); return true; }
+  if(taskGuard.handle(low,low)) return true;
   return false;
  }
 
@@ -318,6 +320,9 @@ public class MainService extends Service {
   else if(low.startsWith("type ")){ cmd="type"; arg=t.substring(5).trim(); }
   else if(low.equals("scroll")||low.startsWith("scroll ")){ cmd="scroll"; arg=low.length()>6?low.substring(7).trim():"down"; }
   if(cmd!=null){ runAction(cmd,arg,t); return; }
+  // speech-to-text can mangle words: fuzzy-match against known commands
+  String fuzzyCmd=fuzzyCommand(low);
+  if(fuzzyCmd!=null){ local("\""+t+"\" -> \""+fuzzyCmd+"\"",false); handle(fuzzyCmd); return; }
   askAI(t);
  }
 
@@ -334,7 +339,7 @@ public class MainService extends Service {
   slimeView.say("peeking..."); chatView.setVisibility(View.GONE);
   h.postDelayed(new Runnable(){ public void run(){
    String screen=EyeService.instance!=null?EyeService.instance.dumpScreen():"no screen (accessibility is off)";
-   String sys=OpenRouterClient.buildSystem(brain.context(t),moods[slimeView.mood],screen,mem.getNotifContext(),mem.getRecentContext(6))+"\nYOUR NEEDS: "+needs.describe()+Phone.AI_HINT+Vibe.STYLE+Brain.PROMPT+Modes.prompt(MainService.this);
+   String sys=OpenRouterClient.buildSystem(brain.context(t),moods[slimeView.mood],screen,mem.getNotifContext(),mem.getRecentContext(6))+"\nYOUR NEEDS: "+needs.describe()+Phone.AI_HINT+"\nBE PROACTIVE: You are a phone agent, not just a chat buddy. If the user wants something done (open an app, go back, check screen, etc.), use the tags above to make it happen - don't just talk about it. When in doubt, act."+Vibe.STYLE+Brain.PROMPT+Modes.prompt(MainService.this);
    Ai.ask(sys,t,new Ai.Callback(){ public void onResult(String reply){ onReply(t,reply); }});
   }},420);
  }
@@ -366,6 +371,7 @@ public class MainService extends Service {
 
  @Override public void onDestroy(){
   super.onDestroy();
+  stopGuardForeground();
   try{ if(phone!=null) phone.sh.term(LocalLlm.stopScript(),new Shell.Result(){ public void done(int code,String out,String err,String info){} }); }catch(Exception e){ L.w("MainService",e); }
   instance=null;
   try{ h.removeCallbacksAndMessages(null); }catch(Exception e){ L.w("MainService",e); }
@@ -387,6 +393,72 @@ public class MainService extends Service {
    if(Reminders.ACTION.equals(in.getAction())) Reminders.fire(this,in.getIntExtra("id",-1));
    else if(Briefing.ACTION.equals(in.getAction())) Briefing.fire(this);
   }}catch(Exception e){ L.w("MainService",e); }
+  if(sp.getBoolean("guard_on",false)) startGuardForeground();
   return START_STICKY;
+ }
+
+ void createGuardChannel(){
+  try{
+   if(android.os.Build.VERSION.SDK_INT>=26){
+    NotificationChannel ch=new NotificationChannel("guard_channel","SlimeDroid guard",NotificationManager.IMPORTANCE_LOW);
+    ch.setDescription("Keeps your Termux task alive in the background");
+    ch.setLightColor(Color.BLUE);
+    ch.enableLights(false);
+    ch.enableVibration(false);
+    NotificationManager nm=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);
+    nm.createNotificationChannel(ch);
+   }
+  }catch(Exception e){ L.w("MainService",e); }
+ }
+
+ void startGuardForeground(){
+  try{
+   Notification.Builder b=new Notification.Builder(this,"guard_channel");
+   b.setContentTitle("SlimeDroid guard is active");
+   b.setContentText("Keeping your Termux task alive in the background");
+   b.setSmallIcon(android.R.drawable.stat_notify_sync);
+   b.setOngoing(true);
+   b.setPriority(Notification.PRIORITY_LOW);
+   startForeground(1001,b.build());
+  }catch(Exception e){ L.w("MainService",e); }
+ }
+
+ void stopGuardForeground(){
+  try{ stopForeground(true); }catch(Exception e){ L.w("MainService",e); }
+ }
+
+// tolerant match so misspoken voice commands still run
+ static String fuzzyCommand(String low){
+  if(low==null||low.isEmpty()) return null;
+  String[] cmds={
+   "help","browser","close browser","about","status","feed","play","shh","talk to me","unmute",
+   "talk more","talk less","say something","wake up","pings on","pings off","catch me up",
+   "clear history","memories","mode","focus mode","hacker mode","study mode","game mode","chill mode",
+   "hum","peek","search ","weather ","pet size ","pet bigger","pet smaller","pet opacity ","chat opacity ",
+   "wander off","wander on","remind me ","briefing ","use gemini","use openrouter","use offline",
+   "open ","tap ","type ","scroll ","back","home","recents","look ","photo math","gemini model ",
+   "gemini diagnose","gemini models","key ","gemini key ","offline ","listen ","tts ","voice ",
+   "clip ","copy ","remember ","forget ","routines ","routine ","when I ","briefing now","weather "
+  };
+  String best=null; int bestDist=999;
+  for(String c:cmds){
+   int d=editDist(low,c);
+   if(d<bestDist){ bestDist=d; best=c; }
+  }
+  return bestDist<=2?best:null;
+ }
+ static int editDist(String a,String b){
+  int n=a.length(),m=b.length();
+  if(Math.abs(n-m)>2) return 999;
+  int[][] dp=new int[n+1][m+1];
+  for(int i=0;i<=n;i++) dp[i][0]=i;
+  for(int j=0;j<=m;j++) dp[0][j]=j;
+  for(int i=1;i<=n;i++){
+   for(int j=1;j<=m;j++){
+    int cost=a.charAt(i-1)==b.charAt(j-1)?0:1;
+    dp[i][j]=Math.min(Math.min(dp[i-1][j]+1,dp[i][j-1]+1),dp[i-1][j-1]+cost);
+   }
+  }
+  return dp[n][m];
  }
 }
