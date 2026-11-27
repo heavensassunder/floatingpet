@@ -67,7 +67,7 @@ static final String[] CMDS={
  "rotate off","dark mode on","dark mode off","wifi on","wifi off","data on","data off","bluetooth on","bluetooth off",
  "airplane on","airplane off","screen off","screen on","back","home","recents","tap ","swipe up","swipe down",
  "swipe left","swipe right","launch ","force stop ","goto ","fg","shot","look ","photo math","solve this","stype ",
- "hold ","drop ","stash","what are you holding"
+ "hold ","drop ","stash","what are you holding","guard task ","guard on","guard off","guard status","guard now","guard every ","guard watch "
 };
  public ChatView(Context c){ super(c); setOrientation(VERTICAL); setBackgroundColor(Color.parseColor("#80000000"));
   LinearLayout card=new LinearLayout(c); card.setOrientation(VERTICAL); card.setPadding(12,10,12,10); card.setBackground(createRound(Color.WHITE,18f));

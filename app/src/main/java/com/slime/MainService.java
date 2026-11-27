@@ -438,7 +438,7 @@ public class MainService extends Service {
    "wander off","wander on","remind me ","briefing ","use gemini","use openrouter","use offline",
    "open ","tap ","type ","scroll ","back","home","recents","look ","photo math","gemini model ",
    "gemini diagnose","gemini models","key ","gemini key ","offline ","listen ","tts ","voice ",
-   "clip ","copy ","remember ","forget ","routines ","routine ","when I ","briefing now","weather "
+   "clip ","copy ","remember ","forget ","routines ","routine ","when I ","briefing now","weather ","guard task ","guard on","guard off","guard status","guard now","guard every ","guard watch "
   };
   String best=null; int bestDist=999;
   for(String c:cmds){
