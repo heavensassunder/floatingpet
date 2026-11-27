@@ -175,6 +175,14 @@ public class CommandsActivity extends Activity {
   item("sh COMMAND","run a command on the phone (Shizuku)");
   item("term COMMAND","run a command in Termux");
 
+  head("Task Guard (keep your Termux task alive)");
+  item("guard task COMMAND","set the command to monitor, e.g. 'guard task termux-wake-lock; nohup ./s.sh > ~/s.log 2>&1 &'; says what Termux command to keep running");
+  item("guard on / guard off","turn the watchdog on or off; while on, SlimeDroid runs as a foreground service with a persistent notification so Android won't kill it");
+  item("guard status","show whether guard is on/off, the check interval, the task and the watch pattern");
+  item("guard now","run a check immediately instead of waiting for the interval");
+  item("guard every N","set how often to check in seconds (5 to 3600, default 30)");
+  item("guard watch PATTERN","override the pgrep -f pattern used to detect your process; by default Slime strips termux-wake-lock/nohup prefixes to find the real process");
+  item("example","guard task termux-wake-lock; nohup ./s.sh > ~/s.log 2>&1 &\n guard on\n guard status\n guard every 30\n guard now");
   head("AI suggestions");
   text("If you ask the slime to do something on the phone, it may suggest one action and wait. Reply yes or no.",13f,"#D6DBDF",false,2);
   setContentView(sv);
