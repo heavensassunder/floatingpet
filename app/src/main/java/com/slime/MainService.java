@@ -18,7 +18,7 @@ public class MainService extends Service {
  String[] moods={"Happy!","Sleepy","Mad","Love","Hungry","Cry","Wow","Wink","Dead"};
  MemoryManager mem; ActionExecutor executor; Voice voice; Notifs notifs;
  Handler h=new Handler(); Random rnd=new Random(); SharedPreferences sp; Needs needs;
- Wander wander; Clipboard clipboard; DeviceEvents device; Ear ear;
+ Wander wander; Clipboard clipboard; DeviceEvents device; Ear ear; TaskGuard taskGuard;
 
  Runnable lifeTick=new Runnable(){ public void run(){ try{ life(); }catch(Exception e){ L.w("MainService",e); } h.postDelayed(this,30000); }};
  @Override public void onCreate(){
@@ -40,7 +40,7 @@ public class MainService extends Service {
   instance=this;
   Appearance.applySize(this);
   Appearance.applyAlpha(this);
-  Walls.measure(this); phone=new Phone(this); phone.start(); extra=new Extra(this); vibe=new Vibe(this); vibe.start(); guard=new Guard(this); h.postDelayed(guard,1200); wander=new Wander(this); notifs=new Notifs(this);
+  Walls.measure(this); phone=new Phone(this); phone.start(); extra=new Extra(this); vibe=new Vibe(this); vibe.start(); guard=new Guard(this); h.postDelayed(guard,1200); wander=new Wander(this); notifs=new Notifs(this); taskGuard=new TaskGuard(this);
   boolean as=asleep(); needs.tick(as,isCharging()); slimeView.setMood(needs.mood(as));
 
   chatView.close.setOnClickListener(new View.OnClickListener(){ public void onClick(View v){ chatView.setVisibility(View.GONE); }});
@@ -283,6 +283,7 @@ public class MainService extends Service {
   if(low.contains("what do you remember")||low.contains("what do you know about me")){ brain.showSummary(); return true; }
   if(low.equals("forget all")||low.equals("forget everything")){ if(brain!=null) brain.clearAll(); try{ mem.longFile.delete(); }catch(Exception e){ L.w("MainService",e); } local("done, I forgot everything I knew about you."); return true; }
   if(low.equals("clear history")){ try{ mem.chatFile.delete(); mem.notifFile.delete(); chatView.messagesContainer.removeAllViews(); }catch(Exception e){ L.w("MainService",e); } notifs.unseen=0; local("history cleared"); return true; }
+  if(taskGuard.handle(t,low)) return true;
   return false;
  }
 
